@@ -1,0 +1,58 @@
+{% extends "app_base.html" %}
+{% block title %}Grades — {{ site_name }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>My grades</h1>
+    <p class="muted">Read-only. Teachers enter the scores.</p>
+  </div>
+</header>
+
+{% for enrollment, result, assignments, grade_map in rows %}
+<section class="panel">
+  <header class="panel__head">
+    <h2>{{ enrollment.course.title }}</h2>
+    <p class="grade-big">
+      {% if result.percent is not none %}{{ result.letter }} <span>{{ result.percent }}%</span>{% else %}—{% endif %}
+    </p>
+  </header>
+  <div class="weight-row">
+    {% for cat in result.categories %}
+    <div class="weight-chip">
+      <strong>{{ cat.category.name }}</strong>
+      <span>{{ cat.category.weight|int }}%</span>
+      <span class="muted">{% if cat.percent is not none %}{{ cat.percent }}%{% else %}—{% endif %}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% if assignments %}
+  <div class="table-wrap">
+    <table class="sheet">
+      <thead><tr><th>Work</th><th>Type</th><th>Due</th><th>Score</th></tr></thead>
+      <tbody>
+        {% for assignment in assignments %}
+        {% set grade = grade_map.get(assignment.id) %}
+        <tr>
+          <td>{{ assignment.title }}</td>
+          <td>{{ assignment.category.name }}</td>
+          <td>{% if assignment.due_date %}{{ assignment.due_date.strftime('%b %d') }}{% else %}—{% endif %}</td>
+          <td>
+            {% if grade %}
+            {{ grade.points_earned }} / {{ assignment.points_possible }}
+            {% else %}
+            <span class="muted">Not scored yet</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No assignments in this class yet.</p>
+  {% endif %}
+</section>
+{% else %}
+<p class="muted">No classes yet.</p>
+{% endfor %}
+{% endblock %}

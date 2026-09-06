@@ -1,0 +1,122 @@
+{% extends "app_base.html" %}
+{% block title %}{{ course.title }} — {{ site_name }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <p class="eyebrow"><a href="/courses">Classes</a></p>
+    <h1>{{ course.title }}</h1>
+    {% if student %}
+    <p class="muted">{{ student.display_name }}
+      {% if result and result.percent is not none %}
+      · {{ result.percent }}% · {{ result.letter }}
+      {% endif %}
+    </p>
+    {% endif %}
+  </div>
+</header>
+
+{% if error %}<div class="status status--error">{{ error }}</div>{% endif %}
+{% if ok %}<div class="status status--ok">{{ ok }}</div>{% endif %}
+
+{% if result %}
+<section class="weight-row">
+  {% for cat in result.categories %}
+  <div class="weight-chip">
+    <strong>{{ cat.category.name }}</strong>
+    <span>{{ cat.category.weight|int }}%</span>
+    <span class="muted">{% if cat.percent is not none %}{{ cat.percent }}%{% else %}—{% endif %}</span>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>Add work</h2>
+  <form method="post" action="/courses/{{ course.id }}/assignments" class="form form--grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="field span-2">
+      <span class="field__label">Name</span>
+      <input class="input" name="title" required placeholder="Chapter 4 test, Friday quiz…">
+    </label>
+    <label class="field">
+      <span class="field__label">Type</span>
+      <select class="input" name="category_id">
+        {% for cat in categories %}
+        <option value="{{ cat.id }}">{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span class="field__label">Points</span>
+      <input class="input" type="number" name="points_possible" value="100" min="1" step="0.5">
+    </label>
+    <label class="field">
+      <span class="field__label">Due date</span>
+      <input class="input" type="date" name="due_date">
+    </label>
+    <label class="field check-field">
+      <input type="checkbox" name="show_on_calendar" value="1" checked>
+      <span>Put on the calendar</span>
+    </label>
+    <div class="span-2">
+      <button type="submit" class="btn btn--primary">Add assignment</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Gradebook</h2>
+  {% if assignments and enrollment %}
+  <div class="table-wrap">
+    <table class="sheet">
+      <thead>
+        <tr>
+          <th>Work</th>
+          <th>Type</th>
+          <th>Due</th>
+          <th>Score</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for assignment in assignments %}
+        {% set grade = grade_map.get(assignment.id) %}
+        <tr>
+          <td>
+            <strong>{{ assignment.title }}</strong>
+            <div class="row-actions">
+              <a href="/print/grade-sheet/{{ assignment.id }}" target="_blank">Print grading sheet</a>
+              <form method="post" action="/courses/{{ course.id }}/assignments/{{ assignment.id }}/delete" class="inline-form" onsubmit="return confirm('Remove this assignment?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="linkish">Remove</button>
+              </form>
+            </div>
+          </td>
+          <td>{{ assignment.category.name }}</td>
+          <td>{% if assignment.due_date %}{{ assignment.due_date.strftime('%b %d') }}{% else %}—{% endif %}</td>
+          <td colspan="2">
+            <form method="post" action="/courses/{{ course.id }}/grades" class="score-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="assignment_id" value="{{ assignment.id }}">
+              <input type="hidden" name="enrollment_id" value="{{ enrollment.id }}">
+              <input class="input input--score" name="points_earned" inputmode="decimal" placeholder="—" value="{{ grade.points_earned if grade else '' }}">
+              <span class="muted">/ {{ assignment.points_possible|int if assignment.points_possible == assignment.points_possible|int else assignment.points_possible }}</span>
+              <input class="input" name="notes" placeholder="Note" value="{{ grade.notes if grade else '' }}">
+              <button type="submit" class="btn btn--small btn--primary">Save</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">Add the first assignment above. Then type the score when the paper is graded.</p>
+  {% endif %}
+</section>
+
+<form method="post" action="/courses/{{ course.id }}/delete" class="danger-zone" onsubmit="return confirm('Delete this class and its grades?');">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <button type="submit" class="btn btn--ghost">Delete class</button>
+</form>
+{% endblock %}

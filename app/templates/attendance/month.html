@@ -1,0 +1,66 @@
+{% extends "app_base.html" %}
+{% block title %}Attendance — {{ site_name }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Attendance{% if student %} · {{ student.display_name }}{% endif %}</h1>
+    {% if totals %}
+    <p class="muted">{{ totals.present }} present · {{ totals.absent }} absent · {{ totals.excused }} excused · {{ totals.remaining }} days left toward {{ totals.target }}</p>
+    {% endif %}
+  </div>
+  <div class="page-head__actions">
+    <a class="btn" href="/print/attendance/month?year={{ view_year }}&month={{ view_month }}&blank=1" target="_blank">Print blank month</a>
+    <a class="btn" href="/print/attendance/year?blank=1" target="_blank">Print year packet</a>
+  </div>
+</header>
+
+<nav class="month-nav">
+  <a class="btn" href="/attendance?year={{ prev_year }}&month={{ prev_month }}">← Prev</a>
+  <h2>{{ month_name }} {{ view_year }}</h2>
+  <a class="btn" href="/attendance?year={{ next_year }}&month={{ next_month }}">Next →</a>
+</nav>
+
+<p class="legend">
+  <span class="swatch status-present">P Present</span>
+  <span class="swatch status-absent">A Absent</span>
+  <span class="swatch status-excused">E Excused</span>
+  <span class="swatch status-off">O Day off</span>
+  {% if can_edit %}<span class="muted">Tap a day to cycle.</span>{% endif %}
+</p>
+
+{% if cells %}
+<div class="cal-grid" role="grid">
+  <div class="cal-grid__head">Sun</div>
+  <div class="cal-grid__head">Mon</div>
+  <div class="cal-grid__head">Tue</div>
+  <div class="cal-grid__head">Wed</div>
+  <div class="cal-grid__head">Thu</div>
+  <div class="cal-grid__head">Fri</div>
+  <div class="cal-grid__head">Sat</div>
+  {% for week in cells %}
+    {% for day in week %}
+      {% if can_edit and day.in_month %}
+      <form method="post" action="/attendance/day" class="cal-cell in-month status-{{ day.status.value if day.status else 'empty' }} {% if day.is_today %}is-today{% endif %}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="student_id" value="{{ student.id }}">
+        <input type="hidden" name="on_date" value="{{ day.date.isoformat() }}">
+        <input type="hidden" name="status" value="">
+        <input type="hidden" name="next" value="/attendance?year={{ view_year }}&month={{ view_month }}">
+        <button type="submit">
+          <span class="cal-cell__num">{{ day.date.day }}</span>
+          <span class="cal-cell__mark">{% if day.status %}{{ day.status.value[0]|upper }}{% endif %}</span>
+        </button>
+      </form>
+      {% else %}
+      <div class="cal-cell {% if day.in_month %}in-month status-{{ day.status.value if day.status else 'empty' }}{% else %}out{% endif %} {% if day.is_today %}is-today{% endif %}">
+        <span class="cal-cell__num">{{ day.date.day }}</span>
+        <span class="cal-cell__mark">{% if day.in_month and day.status %}{{ day.status.value[0]|upper }}{% endif %}</span>
+      </div>
+      {% endif %}
+    {% endfor %}
+  {% endfor %}
+</div>
+{% else %}
+<p class="muted">No student is set up yet.</p>
+{% endif %}
+{% endblock %}

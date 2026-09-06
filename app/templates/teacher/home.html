@@ -1,0 +1,89 @@
+{% extends "app_base.html" %}
+{% block title %}Teacher desk — {{ site_name }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Hello, {{ current_user.first_name }}.</h1>
+    <p class="muted">Today is {{ today.strftime('%A, %B %-d, %Y') if false else today.strftime('%A, %B %d, %Y') }}.</p>
+  </div>
+</header>
+
+{% if student and totals %}
+<section class="hero-card">
+  <div class="hero-card__copy">
+    <p class="eyebrow">Attendance</p>
+    <h2>{{ student.display_name }}</h2>
+    <p class="muted">{{ totals.present }} days present · {{ totals.remaining }} left toward {{ totals.target }}</p>
+    {% if today_status and today_status.value == 'present' %}
+    <p class="pill pill--present">Marked present today</p>
+    {% else %}
+    <form method="post" action="/attendance/today-present" class="inline-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="student_id" value="{{ student.id }}">
+      <input type="hidden" name="next" value="/teacher">
+      <button type="submit" class="btn btn--primary btn--xl">Mark {{ student.display_name }} present today</button>
+    </form>
+    {% endif %}
+  </div>
+  <div class="week-strip" aria-label="This week">
+    {% for day in week %}
+    <form method="post" action="/attendance/day" class="week-day {% if day.is_today %}is-today{% endif %} status-{{ day.status.value if day.status else 'empty' }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="student_id" value="{{ student.id }}">
+      <input type="hidden" name="on_date" value="{{ day.date.isoformat() }}">
+      <input type="hidden" name="status" value="">
+      <input type="hidden" name="next" value="/teacher">
+      <button type="submit">
+        <span class="week-day__name">{{ day.date.strftime('%a') }}</span>
+        <span class="week-day__num">{{ day.date.day }}</span>
+        <span class="week-day__mark">
+          {% if day.status %}{{ day.status.value[0]|upper }}{% else %}·{% endif %}
+        </span>
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="quick-row">
+  <a class="quick-btn" href="/attendance">Open attendance</a>
+  <a class="quick-btn" href="/courses">Add a class or grade</a>
+  <a class="quick-btn" href="/print/attendance/month?blank=1" target="_blank">Print this month</a>
+  <a class="quick-btn" href="/print/attendance/year?blank=1" target="_blank">Print year packet</a>
+</section>
+
+<div class="split">
+  <section class="panel">
+    <h2>Grades waiting</h2>
+    {% if waiting %}
+    <ul class="plain-list">
+      {% for enrollment, assignment in waiting %}
+      <li>
+        <a href="/courses/{{ enrollment.course_id }}">{{ assignment.title }}</a>
+        <span class="muted">{{ enrollment.course.title }}{% if assignment.due_date %} · due {{ assignment.due_date.strftime('%b %d') }}{% endif %}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">Nothing waiting. When you add a test or assignment, it shows up here until you type the score.</p>
+    {% endif %}
+  </section>
+  <section class="panel">
+    <h2>Coming up</h2>
+    {% if upcoming %}
+    <ul class="plain-list">
+      {% for item in upcoming %}
+      <li>
+        <a href="/courses/{{ item.course_id }}">{{ item.title }}</a>
+        <span class="muted">{{ item.course.title }} · {{ item.due_date.strftime('%b %d') }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">No upcoming due dates yet.</p>
+    {% endif %}
+    <p><a href="/calendar">Open the calendar</a></p>
+  </section>
+</div>
+{% endblock %}

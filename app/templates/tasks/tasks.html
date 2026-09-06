@@ -1,0 +1,61 @@
+{% extends "app_base.html" %}
+{% block title %}To-do — {{ site_name }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>To-do</h1>
+    <p class="muted">Things that need doing. Check the box to put them on the calendar.</p>
+  </div>
+</header>
+
+{% if can_edit %}
+<section class="panel">
+  <form method="post" action="/tasks" class="form form--grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="field span-2">
+      <span class="field__label">Task</span>
+      <input class="input" name="title" required placeholder="Order workbooks, call the dentist…">
+    </label>
+    <label class="field">
+      <span class="field__label">Due</span>
+      <input class="input" type="date" name="due_date">
+    </label>
+    <label class="field check-field">
+      <input type="checkbox" name="show_on_calendar" value="1" checked>
+      <span>Show on calendar</span>
+    </label>
+    <div class="span-2">
+      <button type="submit" class="btn btn--primary">Add task</button>
+    </div>
+  </form>
+</section>
+{% endif %}
+
+<ul class="task-list">
+  {% for task in tasks %}
+  <li class="task-row {% if task.completed %}is-done{% endif %}">
+    <div>
+      <strong>{{ task.title }}</strong>
+      <p class="muted">
+        {% if task.due_at %}Due {{ task.due_at.strftime('%b %d') }}{% else %}No due date{% endif %}
+        {% if task.notes %} · {{ task.notes }}{% endif %}
+      </p>
+    </div>
+    {% if can_edit %}
+    <div class="row-actions">
+      <form method="post" action="/tasks/{{ task.id }}/toggle">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn btn--small" type="submit">{% if task.completed %}Undo{% else %}Done{% endif %}</button>
+      </form>
+      <form method="post" action="/tasks/{{ task.id }}/delete" onsubmit="return confirm('Remove this task?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn btn--small btn--ghost" type="submit">Remove</button>
+      </form>
+    </div>
+    {% endif %}
+  </li>
+  {% else %}
+  <li class="muted">No tasks yet.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

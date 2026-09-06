@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Print — {{ site_name }}{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/print.css?v=20260906a">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <p class="no-print toolbar">
+    <button type="button" onclick="window.print()">Print</button>
+    <a href="javascript:history.back()">Back</a>
+  </p>
+  {% block content %}{% endblock %}
+</body>
+</html>

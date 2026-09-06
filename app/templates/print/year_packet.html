@@ -1,0 +1,40 @@
+{% extends "print/print_base.html" %}
+{% block title %}{{ school_year.label }} attendance packet — {{ student.display_name }}{% endblock %}
+{% block content %}
+<article class="sheet cover">
+  <p class="school">{{ site_name }}</p>
+  <h1>Attendance record</h1>
+  <p class="meta">{{ student.display_name }} · {{ school_year.label }}</p>
+  <p class="meta">{{ school_year.start_date.strftime('%B %d, %Y') }} – {{ school_year.end_date.strftime('%B %d, %Y') }}</p>
+  <ul class="totals">
+    <li>Present: {{ totals.present }}</li>
+    <li>Absent: {{ totals.absent }}</li>
+    <li>Excused: {{ totals.excused }}</li>
+    <li>School days recorded: {{ totals.school_days }}</li>
+    <li>Instructional-day target: {{ totals.target }}</li>
+    <li>Days remaining to target: {{ totals.remaining }}</li>
+  </ul>
+  <p class="ocr">AA|{{ student.display_name|upper|replace(' ', '') }}|{{ school_year.label }}</p>
+  <p class="keep">Keep this packet for at least one year after the school year ends.</p>
+  <footer class="sheet-foot">
+    <p>Teacher signature: ______________________________ &nbsp; Date: ______________</p>
+    <p>Printed {{ printed_on.strftime('%B %d, %Y') }}</p>
+  </footer>
+</article>
+
+{% for month in months %}
+<article class="sheet page-break">
+  <header class="sheet-head">
+    <p class="school">{{ site_name }}</p>
+    <h1>{{ student.display_name }}</h1>
+    <p class="meta">{{ school_year.label }} · {{ month.name }}</p>
+    <p class="ocr">{{ month.ocr_code }}</p>
+  </header>
+  {% set cells = month.cells %}
+  {% include "print/_month_grid.html" %}
+  <footer class="sheet-foot">
+    <p>Teacher: ______________________ &nbsp; Date: ______________</p>
+  </footer>
+</article>
+{% endfor %}
+{% endblock %}

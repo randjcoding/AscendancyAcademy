@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block body_class %}app-shell{% endblock %}
+{% block body %}
+<header class="topbar" id="topbar">
+  <a href="/" class="brand">
+    <span class="brand__mark" aria-hidden="true">A</span>
+    <span class="brand__text">{{ site_name }}</span>
+  </a>
+  <button type="button" class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false">Menu</button>
+  <nav class="topnav" id="topnav">
+    {% if current_user and current_user.is_teacher %}
+    <a href="/teacher" class="{% if request.url.path == '/teacher' %}is-current{% endif %}">Home</a>
+    <a href="/attendance" class="{% if request.url.path.startswith('/attendance') %}is-current{% endif %}">Attendance</a>
+    <a href="/courses" class="{% if request.url.path.startswith('/courses') %}is-current{% endif %}">Classes</a>
+    <a href="/calendar" class="{% if request.url.path.startswith('/calendar') %}is-current{% endif %}">Calendar</a>
+    <a href="/tasks" class="{% if request.url.path.startswith('/tasks') %}is-current{% endif %}">To-do</a>
+    {% elif current_user and current_user.is_student %}
+    <a href="/student" class="{% if request.url.path == '/student' %}is-current{% endif %}">Home</a>
+    <a href="/grades" class="{% if request.url.path.startswith('/grades') %}is-current{% endif %}">Grades</a>
+    <a href="/attendance" class="{% if request.url.path.startswith('/attendance') %}is-current{% endif %}">Attendance</a>
+    <a href="/calendar" class="{% if request.url.path.startswith('/calendar') %}is-current{% endif %}">Calendar</a>
+    <a href="/tasks" class="{% if request.url.path.startswith('/tasks') %}is-current{% endif %}">To-do</a>
+    {% endif %}
+  </nav>
+  <div class="topbar__actions">
+    <form method="post" action="/theme" class="inline-form">
+      <input type="hidden" name="theme" value="cycle">
+      <input type="hidden" name="next" value="{{ request.url.path }}">
+      <button type="submit" class="btn btn--ghost" title="Change colors">Theme</button>
+    </form>
+    {% if current_user %}
+    <a href="/settings" class="btn btn--ghost">{{ current_user.first_name }}</a>
+    <form method="post" action="/logout" class="inline-form">
+      <button type="submit" class="btn btn--ghost">Sign out</button>
+    </form>
+    {% endif %}
+  </div>
+</header>
+<main class="main">
+  {% if school_year %}
+  <p class="year-chip">{{ school_year.label }}</p>
+  {% endif %}
+  {% block content %}{% endblock %}
+</main>
+{% endblock %}

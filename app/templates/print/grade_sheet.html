@@ -1,0 +1,34 @@
+{% extends "print/print_base.html" %}
+{% block title %}Grading sheet — {{ assignment.title }}{% endblock %}
+{% block content %}
+<article class="sheet grade-sheet">
+  <header class="sheet-head">
+    <p class="school">{{ site_name }}</p>
+    <h1>{{ assignment.title }}</h1>
+    <p class="meta">{{ course.title }} · {{ assignment.category.name }} · {{ assignment.points_possible }} points possible</p>
+    {% if assignment.due_date %}<p class="meta">Due {{ assignment.due_date.strftime('%B %d, %Y') }}</p>{% endif %}
+  </header>
+  <table class="grade-table">
+    <tr>
+      <th>Student</th>
+      <td>{{ student.display_name if student else '________________' }}</td>
+    </tr>
+    <tr>
+      <th>Score</th>
+      <td class="score-box">{% if grade %}{{ grade.points_earned }}{% endif %}</td>
+    </tr>
+    <tr>
+      <th>Letter</th>
+      <td class="score-box"></td>
+    </tr>
+    <tr>
+      <th>Notes</th>
+      <td class="notes-box">{{ grade.notes if grade else '' }}</td>
+    </tr>
+  </table>
+  <p class="instructions">Score on paper, then type the number into the gradebook. No online test is attached.</p>
+  <footer class="sheet-foot">
+    <p>Teacher: ______________________ &nbsp; Date: ______________ &nbsp; Printed {{ printed_on.strftime('%b %d, %Y') }}</p>
+  </footer>
+</article>
+{% endblock %}

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ theme|default('academy') }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ site_name }}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650;9..144,700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/main.css?v=20260906a">
+  <script>
+    (function () {
+      var allowed = { academy: 1, light: 1, dark: 1, contrast: 1 };
+      var stored = null;
+      try { stored = localStorage.getItem('aa.theme'); } catch (e) {}
+      var server = document.documentElement.getAttribute('data-theme') || 'academy';
+      var theme = (stored && allowed[stored]) ? stored : server;
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  {% block head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  {% block body %}{% endblock %}
+  <script src="/static/js/app.js?v=20260906a"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ door_label }} sign in — {{ site_name }}{% endblock %}
+{% block body_class %}gate-page{% endblock %}
+{% block body %}
+<div class="gate gate--narrow">
+  <p class="eyebrow">{{ door_label }} door</p>
+  <h1>Sign in</h1>
+  <p class="lede">
+    {% if door == 'teacher' %}
+    For Joe and Mrs. DiFede.
+    {% else %}
+    For Gregory.
+    {% endif %}
+    <a href="/login/{{ 'student' if door == 'teacher' else 'teacher' }}">Wrong door?</a>
+  </p>
+  {% if error %}
+  <div class="status status--error">{{ error }}</div>
+  {% endif %}
+  <form method="post" action="/login/{{ door }}" class="form">
+    <input type="hidden" name="next" value="{{ next }}">
+    <label class="field">
+      <span class="field__label">Email</span>
+      <input type="email" name="email" required autocomplete="username" class="input">
+    </label>
+    <label class="field">
+      <span class="field__label">Password</span>
+      <input type="password" name="password" required autocomplete="current-password" class="input">
+    </label>
+    {% if turnstile_enabled and turnstile_site_key %}
+    <div class="turnstile-wrap">
+      <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="auto"></div>
+    </div>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    {% endif %}
+    <button type="submit" class="btn btn--primary btn--block">Sign in</button>
+  </form>
+</div>
+{% endblock %}

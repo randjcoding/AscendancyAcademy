@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Welcome — {{ site_name }}{% endblock %}
+{% block body_class %}gate-page{% endblock %}
+{% block body %}
+<div class="gate">
+  <p class="eyebrow">Homeschool</p>
+  <h1>{{ site_name }}</h1>
+  <p class="lede">Two doors. Pick the one that is yours.</p>
+  <div class="door-grid">
+    <a class="door-card" href="/login/teacher">
+      <span class="door-card__kicker">Adults</span>
+      <strong>I am a teacher</strong>
+      <span>Mark attendance, enter grades, print calendars.</span>
+    </a>
+    <a class="door-card door-card--student" href="/login/student">
+      <span class="door-card__kicker">Student</span>
+      <strong>I am Gregory</strong>
+      <span>See what’s due, grades, and the calendar.</span>
+    </a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "print/print_base.html" %}
+{% block title %}{{ month_name }} {{ view_year }} attendance — {{ student.display_name }}{% endblock %}
+{% block content %}
+<article class="sheet">
+  <header class="sheet-head">
+    <p class="school">{{ site_name }}</p>
+    <h1>{{ student.display_name }}</h1>
+    <p class="meta">{{ school_year.label if school_year else '' }} · {{ month_name }} {{ view_year }} · Attendance</p>
+    <p class="ocr">{{ ocr_code }}</p>
+  </header>
+  <p class="instructions">Mark one box each school day: <strong>P</strong> present, <strong>A</strong> absent, <strong>E</strong> excused. Leave weekends and days off blank.</p>
+  {% include "print/_month_grid.html" %}
+  <footer class="sheet-foot">
+    <p>Teacher: ______________________ &nbsp; Date: ______________</p>
+  </footer>
+</article>
+{% endblock %}

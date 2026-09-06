@@ -1,0 +1,60 @@
+{% extends "app_base.html" %}
+{% block title %}Classes — {{ site_name }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Classes</h1>
+    <p class="muted">Add a class, then drop in tests, quizzes, and assignments.</p>
+  </div>
+</header>
+
+{% if error %}<div class="status status--error">{{ error }}</div>{% endif %}
+{% if ok %}<div class="status status--ok">{{ ok }}</div>{% endif %}
+
+<section class="panel">
+  <h2>New class</h2>
+  <form method="post" action="/courses/new" class="form form--grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="field">
+      <span class="field__label">Class name</span>
+      <input class="input" name="title" required placeholder="Math, History, Science…">
+    </label>
+    <label class="field">
+      <span class="field__label">Color</span>
+      <select class="input" name="color">
+        {% for color in colors %}
+        <option value="{{ color }}" {% if loop.first %}selected{% endif %}>{{ color }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <p class="span-2 muted">How much each kind of work is worth. These four numbers must add to 100.</p>
+    <label class="field"><span class="field__label">Tests %</span><input class="input" type="number" name="tests_weight" value="40" min="0" max="100" step="1"></label>
+    <label class="field"><span class="field__label">Quizzes %</span><input class="input" type="number" name="quizzes_weight" value="20" min="0" max="100" step="1"></label>
+    <label class="field"><span class="field__label">Assignments %</span><input class="input" type="number" name="assignments_weight" value="30" min="0" max="100" step="1"></label>
+    <label class="field"><span class="field__label">Other %</span><input class="input" type="number" name="other_weight" value="10" min="0" max="100" step="1"></label>
+    <div class="span-2">
+      <button type="submit" class="btn btn--primary">Create class</button>
+    </div>
+  </form>
+</section>
+
+{% if rows %}
+<section class="card-grid">
+  {% for course, enrollment, result in rows %}
+  <article class="class-card" style="--course: {{ course.color }}">
+    <h2><a href="/courses/{{ course.id }}">{{ course.title }}</a></h2>
+    <p class="muted">
+      {% if result and result.percent is not none %}
+      {{ result.percent }}% · {{ result.letter }}
+      {% else %}
+      No scores yet
+      {% endif %}
+    </p>
+    <p><a class="btn btn--small" href="/courses/{{ course.id }}">Open gradebook</a></p>
+  </article>
+  {% endfor %}
+</section>
+{% else %}
+<p class="muted">No classes yet. Create the first one above.</p>
+{% endif %}
+{% endblock %}

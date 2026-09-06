@@ -1,0 +1,25 @@
+<table class="print-cal">
+  <thead>
+    <tr>
+      <th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for week in cells %}
+    <tr>
+      {% for day in week %}
+      <td class="{% if not day.in_month %}out{% endif %}">
+        {% if day.in_month %}
+        <div class="cell-num">{{ day.date.day }}</div>
+        <div class="boxes">
+          <span class="box {% if not blank and day.status and day.status.value == 'present' %}is-marked{% endif %}">P</span>
+          <span class="box {% if not blank and day.status and day.status.value == 'absent' %}is-marked{% endif %}">A</span>
+          <span class="box {% if not blank and day.status and day.status.value == 'excused' %}is-marked{% endif %}">E</span>
+        </div>
+        {% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

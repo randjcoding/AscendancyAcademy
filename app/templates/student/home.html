@@ -1,0 +1,63 @@
+{% extends "app_base.html" %}
+{% block title %}My desk — {{ site_name }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Hi, {{ student.display_name }}.</h1>
+    <p class="muted">Here is what matters today.</p>
+  </div>
+</header>
+
+{% if totals %}
+<section class="stat-row">
+  <div class="stat"><strong>{{ totals.present }}</strong><span>Days present</span></div>
+  <div class="stat"><strong>{{ totals.remaining }}</strong><span>Days to {{ totals.target }}</span></div>
+  <div class="stat"><strong>{{ totals.absent }}</strong><span>Absent</span></div>
+</section>
+{% endif %}
+
+<div class="split">
+  <section class="panel">
+    <h2>Due soon</h2>
+    {% if due %}
+    <ul class="plain-list">
+      {% for item in due %}
+      <li>
+        <span>{{ item.title }}</span>
+        <span class="muted">{{ item.course.title }} · {{ item.due_date.strftime('%b %d') }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">Nothing is due right now.</p>
+    {% endif %}
+  </section>
+  <section class="panel">
+    <h2>Recent scores</h2>
+    {% if recent %}
+    <ul class="plain-list">
+      {% for grade in recent %}
+      <li>
+        <span>{{ grade.assignment.title }}</span>
+        <span class="muted">{{ grade.points_earned }} / {{ grade.assignment.points_possible }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">No scores yet.</p>
+    {% endif %}
+    <p><a href="/grades">See all grades</a></p>
+  </section>
+</div>
+
+<section class="card-grid">
+  {% for enrollment, result in course_rows %}
+  <article class="class-card" style="--course: {{ enrollment.course.color }}">
+    <h2>{{ enrollment.course.title }}</h2>
+    <p class="grade-big">
+      {% if result.percent is not none %}{{ result.letter }} <span>{{ result.percent }}%</span>{% else %}—{% endif %}
+    </p>
+  </article>
+  {% endfor %}
+</section>
+{% endblock %}
