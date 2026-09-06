@@ -26,13 +26,6 @@ from app.services import grades as grades_svc
 router = APIRouter()
 
 
-def _course_or_redirect(db: Session, course_id: int) -> Course | RedirectResponse:
-    course = db.get(Course, course_id)
-    if not course:
-        return RedirectResponse("/courses", status_code=303)
-    return course
-
-
 @router.get("/courses/{course_id}")
 def gradebook(
     course_id: int,
