@@ -63,7 +63,7 @@ from app.services import documents as docs
 from app.services import grades as grades_svc
 from app.services import pages as pages_svc
 from app.services.documents import DocumentsError
-from app.services.turnstile import turnstile_token_from_request, verify_turnstile
+from app.services.turnstile import turnstile_active, turnstile_token_from_request, verify_turnstile
 
 router = APIRouter(prefix="/api")
 
@@ -255,7 +255,7 @@ def me(request: Request, db: Session = Depends(get_db)):
         "list_views": LIST_VIEWS,
         "book_kinds": [(k.value, BOOK_KIND_LABELS[k]) for k in BookKind],
         "colors": [{"hex": h, "name": n} for h, n in COURSE_COLORS],
-        "turnstile": {"enabled": settings.turnstile_enabled, "site_key": settings.turnstile_site_key},
+        "turnstile": {"enabled": turnstile_active(), "site_key": settings.turnstile_site_key},
     }
 
 
@@ -263,10 +263,9 @@ def me(request: Request, db: Session = Depends(get_db)):
 async def api_login(body: LoginBody, request: Request, db: Session = Depends(get_db)):
     door = body.door if body.door in {"teacher", "student"} else "teacher"
     expected = UserKind.TEACHER if door == "teacher" else UserKind.STUDENT
-    if settings.turnstile_enabled:
-        token = body.turnstile or await turnstile_token_from_request(request)
-        if not verify_turnstile(request, token):
-            return _err("Please confirm you are a person.")
+    token = body.turnstile or await turnstile_token_from_request(request)
+    if not verify_turnstile(request, token):
+        return _err("Please confirm you are a person.")
     user = authenticate(db, body.email, body.password, request)
     if not user:
         return _err(FAILURE_MESSAGE)

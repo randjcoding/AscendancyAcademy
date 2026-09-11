@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../api'
 import { useAuth } from '../Auth'
@@ -57,6 +57,35 @@ export function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [turnstile, setTurnstile] = useState('')
+  const siteKey = me?.turnstile.enabled && me.turnstile.site_key ? me.turnstile.site_key : ''
+
+  useEffect(() => {
+    if (!siteKey) return
+    const box = document.getElementById('cf-box')
+    const w = window as unknown as {
+      turnstile?: { render: (el: HTMLElement, opts: Record<string, unknown>) => void }
+    }
+    const render = () => {
+      if (box && w.turnstile) {
+        box.innerHTML = ''
+        w.turnstile.render(box, {
+          sitekey: siteKey,
+          theme: 'auto',
+          callback: (token: string) => setTurnstile(token),
+        })
+      }
+    }
+    if (w.turnstile) {
+      render()
+      return
+    }
+    const script = document.createElement('script')
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+    script.async = true
+    script.onload = render
+    document.body.appendChild(script)
+  }, [siteKey])
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const next = params.get('next') || ''
@@ -70,7 +99,7 @@ export function Login() {
     e.preventDefault()
     setError('')
     try {
-      const dest = await login(side, email, password)
+      const dest = await login(side, email, password, turnstile)
       navigate(next.startsWith('/') ? next : dest)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not sign in.')
@@ -96,9 +125,7 @@ export function Login() {
             <span className="field__label">Password</span>
             <input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </label>
-          {me?.turnstile.enabled && me.turnstile.site_key ? (
-            <p className="muted">If a check appears, complete it, then sign in again.</p>
-          ) : null}
+          {siteKey ? <div id="cf-box" className="turnstile-wrap" /> : null}
           <button type="submit" className="btn btn--primary btn--block">
             Sign in
           </button>
