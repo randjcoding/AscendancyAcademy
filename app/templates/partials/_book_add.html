@@ -1,13 +1,14 @@
 <form method="post" action="/courses/{{ course.id }}/books" class="form form--grid book-find" data-book-find>
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="hidden" name="next" value="{{ next_path }}">
-  <p class="span-2 muted">Scan or type an ISBN / UPC, or just the title. We look it up for you.</p>
+  <p class="span-2 muted">Type an ISBN / UPC or the title, or tap Scan to use the camera or a photo of the barcode.</p>
   <label class="field span-2">
     <span class="field__label">ISBN, UPC, or title</span>
     <div class="find-row">
       <input class="input" name="lookup" data-book-query placeholder="978… or the name on the cover" autocomplete="off">
       <button type="button" class="btn" data-book-search>Find</button>
-      <button type="button" class="btn" data-book-scan hidden>Scan</button>
+      <button type="button" class="btn" data-book-scan>Scan</button>
+      <input type="file" accept="image/*" capture="environment" data-book-photo hidden>
     </div>
   </label>
   <div class="span-2 book-hits" data-book-hits hidden></div>

@@ -1,4 +1,45 @@
 :root,
+:root[data-theme="ascendancy"] {
+  --ink: #f3ead8;
+  --mute: #c4b396;
+  --paper: #121014;
+  --surface: #1c1918;
+  --surface-2: #2a2320;
+  --line: #4a3d32;
+  --brand: #d4b44a;
+  --brand-2: #e6d08a;
+  --gold: #d4b44a;
+  --accent: #b33a3a;
+  --present: #8f9a7a;
+  --absent: #d36a6a;
+  --excused: #d4b44a;
+  --off: #8a8278;
+  --on-brand: #161310;
+  --shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --radius: 16px;
+  --font: "Source Sans 3", "Segoe UI", sans-serif;
+  --display: "Fraunces", Georgia, serif;
+}
+
+:root[data-theme="giants"] {
+  --ink: #0b2265;
+  --mute: #4a5578;
+  --paper: #f3f6fb;
+  --surface: #ffffff;
+  --surface-2: #e6edf6;
+  --line: #c5d0e3;
+  --brand: #0b2265;
+  --brand-2: #1a3a8a;
+  --gold: #a71930;
+  --accent: #a71930;
+  --present: #0b2265;
+  --absent: #a71930;
+  --excused: #c45c20;
+  --off: #6b7280;
+  --on-brand: #ffffff;
+  --shadow: 0 8px 24px rgba(11, 34, 101, 0.1);
+}
+
 :root[data-theme="academy"] {
   --ink: #1b241c;
   --mute: #5c675d;
@@ -14,10 +55,8 @@
   --absent: #9b2226;
   --excused: #b45309;
   --off: #8a8374;
+  --on-brand: #fffaf0;
   --shadow: 0 10px 30px rgba(27, 67, 50, 0.08);
-  --radius: 16px;
-  --font: "Source Sans 3", "Segoe UI", sans-serif;
-  --display: "Fraunces", Georgia, serif;
 }
 
 :root[data-theme="light"] {
@@ -35,6 +74,7 @@
   --absent: #c1121f;
   --excused: #b45309;
   --off: #9ca3af;
+  --on-brand: #fffaf0;
   --shadow: 0 8px 24px rgba(29, 53, 87, 0.08);
 }
 
@@ -53,6 +93,7 @@
   --absent: #f07167;
   --excused: #e9c46a;
   --off: #6b7280;
+  --on-brand: #101612;
   --shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
 }
 
@@ -71,6 +112,7 @@
   --absent: #000;
   --excused: #000;
   --off: #444;
+  --on-brand: #fff;
   --shadow: none;
 }
 
@@ -89,6 +131,7 @@
   --absent: #bc4749;
   --excused: #b45309;
   --off: #6b7c6e;
+  --on-brand: #f4f8f2;
   --shadow: 0 10px 28px rgba(20, 40, 29, 0.1);
 }
 
@@ -107,6 +150,7 @@
   --absent: #9b2226;
   --excused: #b45309;
   --off: #8a8374;
+  --on-brand: #fff8e7;
   --shadow: 0 10px 28px rgba(61, 43, 31, 0.1);
 }
 
@@ -148,7 +192,7 @@ p { margin: 0 0 0.8em; }
 .brand { display: flex; align-items: center; gap: 0.55rem; text-decoration: none; color: var(--ink); font-family: var(--display); font-weight: 700; }
 .brand__mark {
   width: 2rem; height: 2rem; border-radius: 8px;
-  background: var(--brand); color: var(--paper);
+  background: var(--brand); color: var(--on-brand, var(--paper));
   display: grid; place-items: center; font-size: 1.1rem;
 }
 .topnav { display: flex; flex-wrap: wrap; gap: 0.35rem 0.85rem; }
@@ -180,6 +224,8 @@ p { margin: 0 0 0.8em; }
   cursor: pointer;
 }
 .look-swatch.is-on, .theme-pick.is-on { outline: 2px solid var(--gold); }
+[data-theme-preview="ascendancy"] { background: #121014; color: #d4b44a; border-color: #d4b44a; }
+[data-theme-preview="giants"] { background: #0b2265; color: #ffffff; border-color: #a71930; }
 [data-theme-preview="academy"] { background: #1b4332; color: #f4ead6; border-color: #1b4332; }
 [data-theme-preview="light"] { background: #ffffff; color: #1d3557; }
 [data-theme-preview="dark"] { background: #18211b; color: #95d5b2; border-color: #334239; }
@@ -199,7 +245,7 @@ p { margin: 0 0 0.8em; }
   color: var(--ink); border-radius: 999px; padding: 0.45rem 0.95rem;
   font: inherit; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center;
 }
-.btn--primary { background: var(--brand); color: #fffaf0; border-color: var(--brand); }
+.btn--primary { background: var(--brand); color: var(--on-brand, #fffaf0); border-color: var(--brand); }
 .btn--ghost { background: transparent; }
 .btn--small { padding: 0.25rem 0.7rem; font-size: 0.9rem; }
 .btn--xl { padding: 0.85rem 1.3rem; font-size: 1.1rem; font-weight: 600; }
@@ -275,6 +321,7 @@ p { margin: 0 0 0.8em; }
   background: #000;
 }
 .book-scan__actions { margin-top: 0.7rem; text-align: center; }
+.book-scan__hint { color: #f3ead8; margin: 0 0 0.6rem; text-align: center; }
 .quick-row { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0 0 1.2rem; }
 .quick-btn {
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px;

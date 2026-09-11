@@ -59,7 +59,7 @@ def _upsert_user(
         is_admin=is_admin,
         status=AccountStatus.ACTIVE,
         must_change_password=True,
-        theme_preference="academy",
+        theme_preference="ascendancy",
     )
     db.add(user)
     db.flush()
@@ -137,6 +137,10 @@ def seed(db: Session | None = None) -> None:
             db.add(year)
         else:
             year.is_current = True
+
+        for user in db.scalars(select(User)).all():
+            if user.theme_preference == "academy":
+                user.theme_preference = "ascendancy"
 
         db.commit()
     finally:

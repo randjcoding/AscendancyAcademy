@@ -35,6 +35,8 @@ def test_login_doors():
     with TestClient(app) as client:
         home = client.get("/", follow_redirects=False)
         assert home.status_code == 200
+        assert "Ascendancy" in home.text
+        assert home.text.index('data-theme-preview="ascendancy"') < home.text.index('data-theme-preview="giants"')
         teacher = client.get("/login/teacher")
         assert teacher.status_code == 200
         assert "Teacher" in teacher.text

@@ -29,6 +29,26 @@ def digits(raw: str) -> str:
     return re.sub(r"\D", "", raw or "")
 
 
+def isbn13_to_isbn10(code: str) -> str:
+    if len(code) != 13 or not code.startswith("978") or not code.isdigit():
+        return ""
+    core = code[3:12]
+    total = sum(int(digit) * (10 - i) for i, digit in enumerate(core))
+    check = (11 - (total % 11)) % 11
+    return core + ("X" if check == 10 else str(check))
+
+
+def code_variants(raw: str) -> list[str]:
+    code = normalize_code(raw)
+    if not code:
+        return []
+    out = [code]
+    ten = isbn13_to_isbn10(code)
+    if ten and ten not in out:
+        out.append(ten)
+    return out
+
+
 def normalize_code(raw: str) -> str:
     text = (raw or "").strip()
     if not text:
@@ -147,9 +167,47 @@ def lookup_open_library_isbn(code: str) -> list[BookHit]:
     ]
 
 
-def lookup_google(query: str) -> list[BookHit]:
+def lookup_open_library_search_isbn(code: str) -> list[BookHit]:
+    params = urllib.parse.urlencode({"isbn": code, "limit": 5})
+    search = _get(f"https://openlibrary.org/search.json?{params}")
+    hits: list[BookHit] = []
+    if not isinstance(search, dict):
+        return hits
+    for doc in (search.get("docs") or [])[:5]:
+        title = (doc.get("title") or "").strip()
+        if not title:
+            continue
+        isbn = ""
+        for cand in doc.get("isbn") or []:
+            raw = normalize_code(str(cand))
+            if len(raw) in {10, 13}:
+                isbn = raw
+                break
+        author = ""
+        names = doc.get("author_name") or []
+        if names:
+            author = str(names[0])
+        subjects = [str(s) for s in (doc.get("subject") or [])[:8]]
+        hits.append(
+            BookHit(
+                title=title,
+                author=author,
+                isbn=isbn or code,
+                upc=isbn or code,
+                kind=guess_kind(title, subjects).value,
+                notes="; ".join(subjects[:3]),
+                source="Open Library",
+            )
+        )
+    return hits
+
+
+def lookup_google(query: str, *, isbn_prefix: bool = True) -> list[BookHit]:
     code = normalize_code(query)
-    q = f"isbn:{code}" if len(code) in {10, 12, 13} else query.strip()
+    if isbn_prefix and len(code) in {10, 12, 13}:
+        q = f"isbn:{code}"
+    else:
+        q = query.strip() or code
     params = urllib.parse.urlencode({"q": q, "maxResults": 5})
     data = _get(f"https://www.googleapis.com/books/v1/volumes?{params}")
     hits: list[BookHit] = []
@@ -185,24 +243,38 @@ def lookup_google(query: str) -> list[BookHit]:
     return hits
 
 
+def _merge(hits: list[BookHit], extra: list[BookHit]) -> list[BookHit]:
+    for hit in extra:
+        if not any(h.title.lower() == hit.title.lower() for h in hits):
+            hits.append(hit)
+    return hits
+
+
 def lookup(query: str) -> list[BookHit]:
     q = (query or "").strip()
     if not q:
         return []
     hits: list[BookHit] = []
-    code = normalize_code(q)
-    if code:
-        hits.extend(lookup_google(code))
-        if not hits:
-            hits.extend(lookup_open_library_isbn(code))
-        if hits:
-            return hits[:6]
+    variants = code_variants(q)
+    if variants:
+        for code in variants:
+            _merge(hits, lookup_open_library_isbn(code))
+            if hits:
+                return hits[:6]
+            _merge(hits, lookup_open_library_search_isbn(code))
+            if hits:
+                return hits[:6]
+        for code in variants:
+            _merge(hits, lookup_google(code, isbn_prefix=True))
+            if hits:
+                return hits[:6]
+            _merge(hits, lookup_google(code, isbn_prefix=False))
+            if hits:
+                return hits[:6]
         return []
-    hits.extend(lookup_open_library(q))
+    _merge(hits, lookup_open_library(q))
     if len(hits) < 2:
-        for extra in lookup_google(q):
-            if not any(h.title.lower() == extra.title.lower() for h in hits):
-                hits.append(extra)
+        _merge(hits, lookup_google(q, isbn_prefix=False))
     return hits[:6]
 
 

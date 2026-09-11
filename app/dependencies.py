@@ -14,9 +14,11 @@ from app.services.attendance import current_year
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 
-THEMES = ["academy", "light", "dark", "contrast", "forest", "parchment"]
+THEMES = ["ascendancy", "giants", "academy", "light", "dark", "contrast", "forest", "parchment"]
 DENSITIES = ["comfortable", "cozy", "compact"]
 THEME_LABELS = {
+    "ascendancy": "Ascendancy",
+    "giants": "Giants",
     "academy": "Academy",
     "light": "Light",
     "dark": "Dark",
@@ -90,7 +92,7 @@ def theme_for(request: Request, user: User | None) -> str:
         return user.theme_preference
     if cookie in THEMES:
         return cookie
-    return "academy"
+    return "ascendancy"
 
 
 def density_for(request: Request, user: User | None) -> str:

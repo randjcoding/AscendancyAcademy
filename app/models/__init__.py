@@ -78,7 +78,7 @@ class User(Base):
     status: Mapped[AccountStatus] = mapped_column(
         _enum(AccountStatus, "account_status"), default=AccountStatus.ACTIVE, index=True
     )
-    theme_preference: Mapped[str] = mapped_column(String(20), default="academy")
+    theme_preference: Mapped[str] = mapped_column(String(20), default="ascendancy")
     density_preference: Mapped[str] = mapped_column(String(20), default="cozy")
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
     failed_login_count: Mapped[int] = mapped_column(Integer, default=0)

@@ -32,7 +32,7 @@ def set_look(
     density: str = Form(""),
     next: str = Form("/"),
 ):
-    current_theme = (user.theme_preference if user else request.cookies.get("aa_theme")) or "academy"
+    current_theme = (user.theme_preference if user else request.cookies.get("aa_theme")) or "ascendancy"
     current_density = (getattr(user, "density_preference", None) if user else request.cookies.get("aa_density")) or "cozy"
     chosen_theme = theme.strip().lower()
     chosen_density = density.strip().lower()
@@ -40,7 +40,7 @@ def set_look(
         idx = THEMES.index(current_theme) if current_theme in THEMES else 0
         chosen_theme = THEMES[(idx + 1) % len(THEMES)]
     if chosen_theme not in THEMES:
-        chosen_theme = current_theme if current_theme in THEMES else "academy"
+        chosen_theme = current_theme if current_theme in THEMES else "ascendancy"
     if chosen_density not in DENSITIES:
         chosen_density = current_density if current_density in DENSITIES else "cozy"
     if user:
