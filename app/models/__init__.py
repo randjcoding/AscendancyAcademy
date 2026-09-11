@@ -481,6 +481,16 @@ class TeacherApiKey(Base):
     user: Mapped["User"] = relationship(back_populates="api_keys")
 
 
+class NamedColor(Base):
+    __tablename__ = "named_colors"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    hex: Mapped[str] = mapped_column(String(16))
+    created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class AiUsageEvent(Base):
     __tablename__ = "ai_usage_events"
 

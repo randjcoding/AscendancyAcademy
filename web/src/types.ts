@@ -16,7 +16,7 @@ export type User = {
   csrf: string
 }
 
-export type ColorOpt = { hex: string; name: string }
+export type ColorOpt = { id?: number; hex: string; name: string }
 
 export type Totals = {
   present: number
@@ -96,6 +96,5 @@ export type Me = {
   density_labels: Record<string, string>
   list_views: string[]
   book_kinds: [string, string][]
-  colors: ColorOpt[]
   turnstile: { enabled: boolean; site_key: string }
 }

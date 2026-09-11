@@ -56,11 +56,22 @@ export function AttendanceCell({
     >
       {day.recorded && canEdit ? (
         <button type="button" className="cal-lock" title={day.locked ? 'Unlock' : 'Lock'} onClick={(e) => void toggleLock(e)}>
-          {day.locked ? '🔒' : '🔓'}
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+            {day.locked ? (
+              <path
+                fill="currentColor"
+                d="M8 1.5A2.5 2.5 0 0 0 5.5 4v2h-1A1.5 1.5 0 0 0 3 7.5v6A1.5 1.5 0 0 0 4.5 15h7A1.5 1.5 0 0 0 13 13.5v-6A1.5 1.5 0 0 0 11.5 6h-1V4A2.5 2.5 0 0 0 8 1.5Zm-1 2.5A1 1 0 0 1 9 4v2H7V4Z"
+              />
+            ) : (
+              <path
+                fill="currentColor"
+                d="M8 1.5A2.5 2.5 0 0 0 5.5 4v.75h1.5V4a1 1 0 0 1 2 0v2H4.5A1.5 1.5 0 0 0 3 7.5v6A1.5 1.5 0 0 0 4.5 15h7A1.5 1.5 0 0 0 13 13.5v-6A1.5 1.5 0 0 0 11.5 6H7V4A2.5 2.5 0 0 1 8 1.5Z"
+              />
+            )}
+          </svg>
         </button>
       ) : null}
       <span className={compact ? 'week-day__name' : 'cal-cell__num'}>{compact ? weekday(day.date) : day.day}</span>
-      {compact ? <span className="week-day__num">{new Date(day.date + 'T12:00:00').getDate()}</span> : null}
       <span className={compact ? 'week-day__mark' : 'cal-cell__mark'}>{MARK[day.status] || '·'}</span>
     </div>
   )

@@ -363,22 +363,23 @@ p { margin: 0 0 0.8em; }
 .plain-list li { padding: 0.55rem 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; }
 
 .week-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.35rem; }
-.week-day button, .cal-cell button {
-  width: 100%; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; padding: 0.35rem;
-}
 .week-day, .cal-cell {
-  border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); min-height: 4.2rem;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2);
+  min-height: 4.2rem; display: flex; align-items: center; justify-content: center;
+  position: relative; min-width: 0; cursor: pointer;
 }
 .week-day.is-today, .cal-cell.is-today { outline: 2px solid var(--gold); }
-.week-day__name, .cal-cell__num { display: block; font-size: 0.78rem; color: var(--mute); }
-.week-day__mark, .cal-cell__mark { font-weight: 700; font-size: 1.1rem; }
+.week-day__name, .cal-cell__num {
+  position: absolute; top: 0.25rem; left: 0.35rem;
+  font-size: 0.78rem; color: var(--mute); line-height: 1;
+}
+.week-day__mark, .cal-cell__mark { font-weight: 700; font-size: 1.45rem; line-height: 1; }
 .status-present { background: color-mix(in srgb, var(--present) 22%, var(--surface)); }
 .status-absent { background: color-mix(in srgb, var(--absent) 20%, var(--surface)); }
 .status-excused { background: color-mix(in srgb, var(--excused) 22%, var(--surface)); }
 .status-sick { background: color-mix(in srgb, var(--sick) 26%, var(--surface)); }
 .status-off { background: var(--surface-2); color: var(--off); }
 .status-empty { background: var(--surface); }
-.cal-cell, .week-day { position: relative; min-width: 0; }
 .lock-form { display: flex; justify-content: center; padding: 0 0.2rem 0.3rem; }
 .lock-btn {
   border: 0; background: transparent; color: var(--mute); font: inherit; font-size: 0.72rem;
@@ -532,15 +533,36 @@ body.docs-modal-open { overflow: hidden; }
   background: color-mix(in srgb, var(--ink) 75%, transparent);
 }
 .color-picker { display: grid; gap: 0.7rem; }
-.color-picker__custom { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-.color-picker__custom input[type="color"] { width: 3rem; height: 2.4rem; border: 1px solid var(--line); background: var(--surface); padding: 0; cursor: pointer; }
-.cal-cell, .week-day { cursor: pointer; }
+.color-picker__custom, .color-picker__save { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; }
+.color-picker__custom input[type="color"] {
+  width: 4.2rem; height: 2.6rem; border: 1px solid var(--line); background: var(--surface);
+  padding: 0.15rem; cursor: pointer; border-radius: 10px;
+}
+.color-picker__save .field { flex: 1 1 10rem; }
+.color-saved { display: grid; gap: 0.25rem; max-height: 12rem; overflow: auto; }
+.color-saved__row { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.color-saved__pick {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.5rem;
+  border: 0; background: none; font: inherit; color: inherit; cursor: pointer;
+  text-align: left; padding: 0.25rem 0;
+}
 .cal-lock {
-  position: absolute; top: 0.2rem; right: 0.25rem; z-index: 2;
+  position: absolute; top: 0.2rem; right: 0.2rem; z-index: 2;
   border: 0; background: transparent; color: var(--mute); cursor: pointer;
-  width: 1.6rem; height: 1.6rem; padding: 0; font-size: 1rem; line-height: 1;
+  width: 1.45rem; height: 1.45rem; padding: 0; display: grid; place-items: center;
 }
 .cal-lock:hover { color: var(--ink); }
+.ctx-menu {
+  position: fixed; z-index: 90; min-width: 11rem;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: var(--shadow); padding: 0.35rem;
+}
+.ctx-menu__label { font-size: 0.8rem; color: var(--mute); margin: 0.2rem 0.45rem 0.35rem; }
+.ctx-menu button {
+  display: block; width: 100%; text-align: left; border: 0; background: none;
+  font: inherit; color: inherit; cursor: pointer; padding: 0.5rem 0.6rem; border-radius: 8px;
+}
+.ctx-menu button:hover { background: var(--surface-2); }
 .explorer { display: grid; grid-template-columns: minmax(13rem, 16rem) 1fr; gap: 1rem; align-items: start; min-width: 0; }
 .explorer-tree, .explorer-pane { min-width: 0; }
 .explorer-tree { max-height: 70vh; overflow: auto; }

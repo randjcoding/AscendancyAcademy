@@ -8,7 +8,7 @@ import { Confirm } from '../ui/Confirm'
 import { Modal } from '../ui/Modal'
 
 export function Courses() {
-  const { user, me, setView } = useAuth()
+  const { user, setView } = useAuth()
   const [courses, setCourses] = useState<Course[]>([])
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
@@ -129,7 +129,7 @@ export function Courses() {
             </label>
             <div className="field">
               <span className="field__label">Color</span>
-              <ColorPicker colors={me?.colors || []} value={color} onChange={setColor} />
+              <ColorPicker value={color} onChange={setColor} />
             </div>
             <div className="field">
               <span className="field__label">Grade weights</span>

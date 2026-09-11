@@ -1,10 +1,11 @@
-import { useEffect, useState, type DragEvent, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState, type DragEvent, type FormEvent, type MouseEvent } from 'react'
 import { api, ApiError, postJson } from '../api'
 import { useAuth } from '../Auth'
 import type { DocEntry, DocListing } from '../types'
 import { Confirm } from '../ui/Confirm'
 import { Modal } from '../ui/Modal'
+
+type Menu = { x: number; y: number; rel: string; label: string }
 
 export function Documents() {
   const { user } = useAuth()
@@ -14,10 +15,12 @@ export function Documents() {
   const [error, setError] = useState('')
   const [ok, setOk] = useState('')
   const [over, setOver] = useState(false)
-  const [addOpen, setAddOpen] = useState(false)
   const [folderOpen, setFolderOpen] = useState(false)
   const [folderName, setFolderName] = useState('')
+  const [target, setTarget] = useState('')
   const [dropAsk, setDropAsk] = useState(false)
+  const [menu, setMenu] = useState<Menu | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const load = async (rel = path) => {
     const data = await api<DocListing>(`/api/documents?path=${encodeURIComponent(rel)}`)
@@ -30,20 +33,25 @@ export function Documents() {
     load('').catch((err) => setError(err instanceof ApiError ? err.message : 'Could not open Documents.'))
   }, [])
 
+  useEffect(() => {
+    const close = () => setMenu(null)
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [])
+
   const toggle = (rel: string) => {
     setSelected((cur) => (cur.includes(rel) ? cur.filter((p) => p !== rel) : [...cur, rel]))
   }
 
-  const upload = async (files: FileList | File[]) => {
+  const upload = async (files: FileList | File[], parent = target || path) => {
     if (!user || !files.length) return
     const body = new FormData()
-    body.set('parent', path)
+    body.set('parent', parent)
     body.set('csrf', user.csrf)
     Array.from(files).forEach((f) => body.append('files', f))
     try {
       await api('/api/documents/upload', { method: 'POST', body })
       setOk('Saved.')
-      setAddOpen(false)
       await load(path)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not save those files.')
@@ -54,7 +62,7 @@ export function Documents() {
     e.preventDefault()
     if (!user) return
     const body = new FormData()
-    body.set('parent', path)
+    body.set('parent', target)
     body.set('name', folderName)
     body.set('csrf', user.csrf)
     try {
@@ -70,13 +78,31 @@ export function Documents() {
   const onDropFiles = (e: DragEvent) => {
     e.preventDefault()
     setOver(false)
-    if (e.dataTransfer.files.length) void upload(e.dataTransfer.files)
+    if (e.dataTransfer.files.length) void upload(e.dataTransfer.files, path)
     const dest = (e.currentTarget as HTMLElement).getAttribute('data-dest')
     const dragged = e.dataTransfer.getData('text/paths')
     if (dragged && dest != null) {
-      setSelected(dragged.split('\n').filter(Boolean))
       void postJson('/api/documents/move', { paths: dragged.split('\n').filter(Boolean), dest, csrf: user?.csrf || '' }).then(() => load(path))
     }
+  }
+
+  const openMenu = (e: MouseEvent, rel: string, label: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setMenu({ x: e.clientX, y: e.clientY, rel, label })
+  }
+
+  const startFolder = (rel: string) => {
+    setTarget(rel)
+    setFolderName('')
+    setFolderOpen(true)
+    setMenu(null)
+  }
+
+  const startFiles = (rel: string) => {
+    setTarget(rel)
+    setMenu(null)
+    requestAnimationFrame(() => fileRef.current?.click())
   }
 
   const items = listing ? [...listing.folders, ...listing.files] : []
@@ -86,22 +112,31 @@ export function Documents() {
       <header className="page-head">
         <div>
           <h1>Documents</h1>
-          <p className="muted">Folders on the left. Drop files here, or drag items into a folder.</p>
+          <p className="muted">Right-click a folder to add a subfolder or files. Pictures and papers go in the same place.</p>
         </div>
         <div className="page-head__actions">
-          <Link className="btn" to="/photos">Add photos</Link>
-          <button type="button" className="btn" onClick={() => setFolderOpen(true)}>New folder</button>
-          <button type="button" className="btn btn--primary" onClick={() => setAddOpen(true)}>Add documents</button>
+          <button type="button" className="btn" onClick={() => startFolder(path)}>New folder</button>
+          <button type="button" className="btn btn--primary" onClick={() => startFiles(path)}>Add files</button>
         </div>
       </header>
       {error ? <div className="status status--error">{error}</div> : null}
       {ok ? <div className="status status--ok">{ok}</div> : null}
+      <input
+        ref={fileRef}
+        className="visually-hidden"
+        type="file"
+        multiple
+        onChange={(e) => {
+          if (e.target.files) void upload(e.target.files, target)
+          e.target.value = ''
+        }}
+      />
       {listing ? (
         <p className="docs-crumbs wrap-any">
           {listing.crumbs.map((c, i) => (
             <span key={`${c.label}-${i}`}>
               {i ? <span className="docs-crumbs__sep"> / </span> : null}
-              {c.href || i < listing.crumbs.length - 1 ? (
+              {i === 0 || i < listing.crumbs.length - 1 ? (
                 <button type="button" className="linkish" onClick={() => void load(i === 0 ? '' : listing.destinations.find((d) => d.label.endsWith(c.label))?.rel || '')}>
                   {c.label}
                 </button>
@@ -140,7 +175,7 @@ export function Documents() {
       ) : null}
 
       <div className="explorer">
-        <aside className="panel explorer-tree">
+        <aside className="panel explorer-tree" onContextMenu={(e) => openMenu(e, '', 'Documents')}>
           <p className="eyebrow">Folders</p>
           {(listing?.destinations || []).map((d) => (
             <button
@@ -149,6 +184,7 @@ export function Documents() {
               className={`tree-item ${path === d.rel ? 'is-on' : ''}`}
               style={{ paddingLeft: `${0.45 + d.depth * 0.7}rem` }}
               onClick={() => void load(d.rel)}
+              onContextMenu={(e) => openMenu(e, d.rel, d.label.split(' / ').slice(-1)[0])}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault()
@@ -166,13 +202,17 @@ export function Documents() {
           onDragOver={(e) => { e.preventDefault(); setOver(true) }}
           onDragLeave={() => setOver(false)}
           onDrop={onDropFiles}
+          onContextMenu={(e) => openMenu(e, path, listing?.title || 'Documents')}
         >
-          <p className="muted">Drop files to save them in this folder.</p>
+          <p className="muted">Drop files here, or right-click a folder.</p>
           {items.map((item: DocEntry) => (
             <div
               key={item.rel}
               className={`explorer-row ${selected.includes(item.rel) ? 'is-selected' : ''}`}
               draggable
+              onContextMenu={(e) => {
+                if (item.kind === 'folder') openMenu(e, item.rel, item.label)
+              }}
               onDragStart={(e) => {
                 const paths = selected.includes(item.rel) ? selected : [item.rel]
                 e.dataTransfer.setData('text/paths', paths.join('\n'))
@@ -205,14 +245,12 @@ export function Documents() {
         </section>
       </div>
 
-      {addOpen ? (
-        <Modal title="Add documents" onClose={() => setAddOpen(false)}>
-          <p className="muted">They go in {listing?.title || 'Documents'}.</p>
-          <label className="field">
-            <span className="field__label">Files</span>
-            <input className="input" type="file" multiple onChange={(e) => e.target.files && void upload(e.target.files)} />
-          </label>
-        </Modal>
+      {menu ? (
+        <div className="ctx-menu" style={{ left: menu.x, top: menu.y }} onClick={(e) => e.stopPropagation()}>
+          <p className="ctx-menu__label wrap-any">{menu.label}</p>
+          <button type="button" onClick={() => startFolder(menu.rel)}>New folder</button>
+          <button type="button" onClick={() => startFiles(menu.rel)}>Add files</button>
+        </div>
       ) : null}
 
       {folderOpen ? (

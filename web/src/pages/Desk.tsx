@@ -253,7 +253,7 @@ export function Desk() {
         <Link className="quick-btn" to="/attendance">Attendance</Link>
         <Link className="quick-btn" to="/courses">Classes</Link>
         <Link className="quick-btn" to="/books">Find a book</Link>
-        <Link className="quick-btn" to="/photos">Add photos</Link>
+        <Link className="quick-btn" to="/documents">Add files</Link>
       </div>
 
       <div className="split">

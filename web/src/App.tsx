@@ -12,7 +12,6 @@ import { SignedIn, StudentGate, TeacherGate } from './pages/Guard'
 import { Choose, Login } from './pages/Login'
 import { Password } from './pages/Password'
 import { People } from './pages/People'
-import { Photos } from './pages/Photos'
 import { Settings } from './pages/Settings'
 import { StudentGrades, StudentHome } from './pages/Student'
 import { Tasks } from './pages/Tasks'
@@ -34,7 +33,7 @@ export default function App() {
                 <Route path="/courses/:courseId" element={<Gradebook />} />
                 <Route path="/books" element={<Books />} />
                 <Route path="/documents" element={<Documents />} />
-                <Route path="/photos" element={<Photos />} />
+                <Route path="/photos" element={<Navigate to="/documents" replace />} />
                 <Route path="/usage" element={<Usage />} />
                 <Route path="/people" element={<People />} />
               </Route>

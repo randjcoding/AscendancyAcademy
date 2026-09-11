@@ -363,7 +363,7 @@ p { margin: 0 0 0.8em; }
 .plain-list li { padding: 0.55rem 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; }
 
 .week-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.35rem; }
-.week-day button, .cal-cell button {
+.week-day button:not(.cal-lock), .cal-cell button:not(.cal-lock) {
   width: 100%; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; padding: 0.35rem;
 }
 .week-day, .cal-cell {

@@ -31,6 +31,11 @@ def test_api_login_wrong_door_is_json():
         assert "student" in resp.json()["error"].lower()
 
 
+def test_colors_need_login():
+    with TestClient(app) as client:
+        assert client.get("/api/colors").status_code == 401
+
+
 def test_api_requires_login():
     with TestClient(app) as client:
         resp = client.get("/api/desk")

@@ -37,6 +37,7 @@ from app.models import (
     Enrollment,
     Grade,
     GradeCategory,
+    NamedColor,
     Student,
     Task,
     TeacherApiKey,
@@ -56,7 +57,7 @@ from app.security import (
     verify_csrf,
     verify_password,
 )
-from app.seed import COURSE_COLORS, COURSE_COLOR_VALUES
+from app.seed import COURSE_COLOR_VALUES
 from app.services import attendance as attendance_svc
 from app.services import catalog as catalog_svc
 from app.services import documents as docs
@@ -240,6 +241,12 @@ class PeoplePasswordBody(BaseModel):
     csrf: str = ""
 
 
+class ColorSaveBody(BaseModel):
+    name: str
+    hex: str
+    csrf: str = ""
+
+
 @router.get("/me")
 def me(request: Request, db: Session = Depends(get_db)):
     user = _current(request, db)
@@ -254,7 +261,6 @@ def me(request: Request, db: Session = Depends(get_db)):
         "density_labels": DENSITY_LABELS,
         "list_views": LIST_VIEWS,
         "book_kinds": [(k.value, BOOK_KIND_LABELS[k]) for k in BookKind],
-        "colors": [{"hex": h, "name": n} for h, n in COURSE_COLORS],
         "turnstile": {"enabled": turnstile_active(), "site_key": settings.turnstile_site_key},
     }
 
@@ -1359,3 +1365,62 @@ async def api_upload_photos(
     if not saved:
         return _err(last or "Choose one or more pictures.")
     return {"ok": True, "saved": saved}
+
+
+def _color_json(row: NamedColor) -> dict:
+    return {"id": row.id, "name": row.name, "hex": row.hex}
+
+
+@router.get("/colors")
+def api_colors(request: Request, db: Session = Depends(get_db), q: str = ""):
+    user = _must_user(request, db)
+    if isinstance(user, JSONResponse):
+        return user
+    rows = db.scalars(select(NamedColor).order_by(NamedColor.name.asc())).all()
+    needle = q.strip().lower()
+    if needle:
+        rows = [r for r in rows if needle in r.name.lower()]
+    return {"colors": [_color_json(r) for r in rows]}
+
+
+@router.post("/colors")
+def api_save_color(body: ColorSaveBody, request: Request, db: Session = Depends(get_db)):
+    user = _must_user(request, db)
+    if isinstance(user, JSONResponse):
+        return user
+    if not user.is_teacher:
+        return _err("Teacher required", 403)
+    if _csrf_bad(request, body.csrf):
+        return _err("That form expired.", 403)
+    name = body.name.strip()
+    hex_val = body.hex.strip()
+    if not name:
+        return _err("Give the color a name.")
+    if not hex_val.startswith("#") or len(hex_val) not in {4, 7}:
+        return _err("Pick a color first.")
+    existing = db.scalar(select(NamedColor).where(NamedColor.name.ilike(name)))
+    if existing:
+        existing.hex = hex_val
+        db.add(existing)
+        db.commit()
+        return {"ok": True, "color": _color_json(existing)}
+    row = NamedColor(name=name, hex=hex_val, created_by_user_id=user.id)
+    db.add(row)
+    db.commit()
+    return {"ok": True, "color": _color_json(row)}
+
+
+@router.post("/colors/{color_id}/delete")
+def api_delete_color(color_id: int, body: ViewBody, request: Request, db: Session = Depends(get_db)):
+    user = _must_user(request, db)
+    if isinstance(user, JSONResponse):
+        return user
+    if not user.is_teacher:
+        return _err("Teacher required", 403)
+    if _csrf_bad(request, body.csrf):
+        return _err("That form expired.", 403)
+    row = db.get(NamedColor, color_id)
+    if row:
+        db.delete(row)
+        db.commit()
+    return {"ok": True}
