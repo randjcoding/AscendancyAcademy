@@ -37,10 +37,11 @@ export function Layout() {
     <div className="app-shell">
       <header className={`topbar ${navOpen ? 'is-nav-open' : ''}`} id="topbar">
         <Link to={teacher ? '/teacher' : '/student'} className="brand">
-          <span className="brand__mark">
-            <BrandMark />
+          <BrandMark />
+          <span className="brand__words">
+            <span className="brand__text">{me?.site_name || 'Ascendancy Academy'}</span>
+            <span className="brand__tag">Ascend above the standards.</span>
           </span>
-          <span className="brand__text">{me?.site_name || 'Ascendancy Academy'}</span>
         </Link>
         <button
           type="button"

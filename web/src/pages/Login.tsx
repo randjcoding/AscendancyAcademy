@@ -13,11 +13,12 @@ export function Choose() {
   return (
     <div className="gate-page">
       <div className="gate">
-        <span className="brand__mark" style={{ width: '3rem', height: '3rem', display: 'inline-block' }}>
+        <span className="brand__mark brand__mark--gate">
           <BrandMark />
         </span>
         <p className="eyebrow">Homeschool</p>
         <h1>{me?.site_name || 'Ascendancy Academy'}</h1>
+        <p className="brand__tag brand__tag--gate">Ascend above the standards.</p>
         <p className="lede">Two doors. Pick the one that is yours.</p>
         <div className="door-grid">
           <Link className="door-card" to="/login/teacher">

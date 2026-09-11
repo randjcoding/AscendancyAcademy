@@ -3,6 +3,7 @@ import { api, ApiError, postJson } from '../api'
 import { useAuth } from '../Auth'
 import type { DocEntry, DocListing } from '../types'
 import { Confirm } from '../ui/Confirm'
+import { FolderIcon } from '../ui/FolderIcon'
 import { Modal } from '../ui/Modal'
 
 type Menu = { x: number; y: number; rel: string; label: string }
@@ -105,6 +106,31 @@ export function Documents() {
     requestAnimationFrame(() => fileRef.current?.click())
   }
 
+  const downloadSelected = async () => {
+    if (!user || !selected.length) return
+    try {
+      const resp = await fetch('/api/documents/zip', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths: selected, csrf: user.csrf }),
+      })
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({ error: 'Could not download those files.' }))
+        throw new ApiError(body.error || 'Could not download those files.', resp.status)
+      }
+      const blob = await resp.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = selected.length === 1 ? 'download.zip' : 'documents.zip'
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not download those files.')
+    }
+  }
+
   const items = listing ? [...listing.folders, ...listing.files] : []
 
   return (
@@ -151,6 +177,9 @@ export function Documents() {
       {selected.length ? (
         <div className="docs-toolbar">
           <span>{selected.length} selected</span>
+          <button type="button" className="btn btn--small" onClick={() => void downloadSelected()}>
+            Download
+          </button>
           <label className="field docs-filter-field">
             <span className="visually-hidden">Move to folder</span>
             <select
@@ -192,7 +221,8 @@ export function Documents() {
                 if (dragged) void postJson('/api/documents/move', { paths: dragged.split('\n').filter(Boolean), dest: d.rel, csrf: user?.csrf || '' }).then(() => load(path))
               }}
             >
-              {d.label.split(' / ').slice(-1)[0]}
+              <FolderIcon />
+              <span className="wrap-any">{d.label.split(' / ').slice(-1)[0]}</span>
             </button>
           ))}
         </aside>
@@ -227,18 +257,23 @@ export function Documents() {
                   if (item.kind === 'folder') void load(item.rel)
                 }}
               >
-                <span className={`docs-badge docs-badge--${item.kind === 'folder' ? 'folder' : item.kind}`}>{item.badge}</span>
-                <span className="docs-item__text">
-                  <strong className="wrap-any">{item.label}</strong>
-                  <span className="muted">{item.size_label || 'Folder'}</span>
-                </span>
+                {item.kind === 'folder' ? (
+                  <FolderIcon />
+                ) : (
+                  <span className={`docs-badge docs-badge--${item.kind}`}>{item.badge}</span>
+                )}
+                <span className="docs-item__name wrap-any">{item.label}</span>
               </button>
-              {item.download_href ? (
-                <a className="docs-action" href={item.download_href}>Download</a>
-              ) : null}
-              {item.inline_href && item.kind !== 'folder' ? (
-                <a className="docs-action" href={item.inline_href} target="_blank" rel="noreferrer">Open</a>
-              ) : null}
+              {item.kind === 'folder' ? (
+                <button type="button" className="docs-action" onClick={() => void load(item.rel)}>
+                  Open
+                </button>
+              ) : (
+                <span className="docs-actions">
+                  {item.download_href ? <a className="docs-action" href={item.download_href}>Download</a> : null}
+                  {item.inline_href ? <a className="docs-action" href={item.inline_href} target="_blank" rel="noreferrer">Open</a> : null}
+                </span>
+              )}
             </div>
           ))}
           {!items.length ? <p className="muted">This folder is empty.</p> : null}

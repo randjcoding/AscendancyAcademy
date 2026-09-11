@@ -1,9 +1,11 @@
 """Teacher document library on disk under Documents/."""
 from __future__ import annotations
 
+import io
 import mimetypes
 import re
 import shutil
+import zipfile
 from pathlib import Path
 from urllib.parse import quote
 
@@ -323,6 +325,36 @@ def move_entries(paths: list[str], dest_rel: str) -> int:
         shutil.move(str(src), str(target))
         moved += 1
     return moved
+
+
+def zip_entries(paths: list[str]) -> bytes:
+    buf = io.BytesIO()
+    used: set[str] = set()
+    count = 0
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as archive:
+        for raw in paths:
+            src = resolve_rel(raw)
+            if not src.exists():
+                raise DocumentsError("A selected item is gone.", 404)
+            if src.is_file():
+                name = src.name
+                if name in used:
+                    name = f"{src.stem}-{len(used)}{src.suffix}"
+                used.add(name)
+                archive.write(src, name)
+                count += 1
+            elif src.is_dir():
+                for child in sorted(src.rglob("*")):
+                    if not child.is_file():
+                        continue
+                    if child.name.startswith(".") or child.name in SKIP_NAMES:
+                        continue
+                    rel = str(child.relative_to(src.parent)).replace("\\", "/")
+                    archive.write(child, rel)
+                    count += 1
+    if not count:
+        raise DocumentsError("Pick at least one file to download.")
+    return buf.getvalue()
 
 
 def delete_entry(rel: str) -> None:

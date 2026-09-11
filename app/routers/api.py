@@ -5,7 +5,7 @@ from dataclasses import asdict
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
@@ -1077,6 +1077,28 @@ def api_doc_delete(body: MoveBody, request: Request, db: Session = Depends(get_d
     except DocumentsError as exc:
         return _err(exc.message)
     return {"ok": True}
+
+
+@router.post("/documents/zip")
+def api_doc_zip(body: MoveBody, request: Request, db: Session = Depends(get_db)):
+    user = _must_user(request, db)
+    if isinstance(user, JSONResponse):
+        return user
+    if not user.is_teacher:
+        return _err("Teacher required", 403)
+    if _csrf_bad(request, body.csrf):
+        return _err("That form expired.", 403)
+    if not body.paths:
+        return _err("Pick at least one file.")
+    try:
+        data = docs.zip_entries(body.paths)
+    except DocumentsError as exc:
+        return _err(exc.message, exc.status)
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="documents.zip"'},
+    )
 
 
 @router.post("/documents/move")
