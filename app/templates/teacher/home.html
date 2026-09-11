@@ -81,9 +81,43 @@
         {% endfor %}
       </select>
     </label>
+    <div class="span-2 panel docs-add" data-read-pages>
+      <p class="field__label">Read from photos</p>
+      <p class="muted">Take pictures of the finished pages. Pick a model, see the cost, then we fill in pages for you to check.</p>
+      <label class="field">
+        <span class="field__label">Photos</span>
+        <input class="input" type="file" accept="image/*" multiple data-read-files>
+      </label>
+      <label class="field">
+        <span class="field__label">Model</span>
+        <select class="input" data-read-provider>
+          <option value="">Pick one</option>
+          <option value="gemma" {% if not gemma_available %}disabled{% endif %}>Gemma on the Mac (free){% if not gemma_available %} — not on{% endif %}</option>
+          <option value="openai">OpenAI</option>
+          <option value="anthropic">Anthropic</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Key</span>
+        <select class="input" data-read-key>
+          <option value="0">None needed for Gemma</option>
+          {% for key in api_keys %}
+          <option value="{{ key.id }}" data-provider="{{ key.provider }}">{{ key.name }} ({{ key.provider }})</option>
+          {% endfor %}
+        </select>
+      </label>
+      <p class="muted" data-read-estimate>Pick a model and photos to see the cost.</p>
+      <p class="muted" data-read-balance></p>
+      <button type="button" class="btn" data-read-run>Read pages</button>
+      <p class="muted" data-read-status hidden></p>
+    </div>
     <label class="field">
       <span class="field__label">Pages today</span>
-      <input class="input" name="pages" placeholder="12-15 or 12, 18, 20-22">
+      <input class="input" name="pages" id="quickPages" placeholder="12-15 or 12, 18, 20-22">
+    </label>
+    <label class="field">
+      <span class="field__label">Score if already marked</span>
+      <input class="input" name="points_earned" id="quickScore" inputmode="decimal" placeholder="Leave blank if not graded yet">
     </label>
     <label class="field">
       <span class="field__label">Due</span>
@@ -129,6 +163,7 @@
           <span class="pill">{{ book.kind_label }}</span>
           {% if book.author %}<span class="muted">{{ book.author }}</span>{% endif %}
           {% if book.code_label %}<span class="muted">{{ book.code_label }}</span>{% endif %}
+          <a href="/courses/{{ course.id }}/books/{{ book.id }}">Edit</a>
         </li>
         {% endfor %}
       </ul>
@@ -136,7 +171,7 @@
       <p class="muted">No books yet.</p>
       {% endif %}
       {% set next_path = "/teacher" %}
-      {% include "partials/_book_add.html" %}
+      {% include "partials/_book_form.html" %}
     </article>
     {% endfor %}
   </div>
@@ -188,5 +223,5 @@
 </section>
 {% endblock %}
 {% block scripts %}
-<script src="/static/js/desk.js?v=20260911c"></script>
+<script src="/static/js/desk.js?v=20260911g"></script>
 {% endblock %}

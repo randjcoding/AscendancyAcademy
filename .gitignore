@@ -1,6 +1,7 @@
 .env
 .env.*
 !.env.example
+AA-KEYS.txt
 .venv/
 venv/
 __pycache__/

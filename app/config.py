@@ -27,9 +27,9 @@ class Settings(BaseSettings):
     teacher1_first_name: str = "Joe"
     teacher1_last_name: str = "DiFede"
 
-    teacher2_email: str = "teacher@example.com"
+    teacher2_email: str = "kim@example.com"
     teacher2_password: str = "change-me-on-first-login"
-    teacher2_first_name: str = "Mrs."
+    teacher2_first_name: str = "Kim"
     teacher2_last_name: str = "DiFede"
 
     student1_email: str = "gregory@example.com"
@@ -51,6 +51,15 @@ class Settings(BaseSettings):
 
     storage_dir: str = "storage"
     testing: bool = False
+
+    openai_api_key: str = ""
+    anthropic_api_key: str = ""
+    gemma_base_url: str = ""
+    gemma_relay_url: str = ""
+    gemma_relay_secret: str = ""
+    gemma_model: str = "gemma4:e4b"
+    gemma_api_key: str = ""
+    gemma_timeout_seconds: int = 180
 
     @property
     def storage_path(self) -> Path:

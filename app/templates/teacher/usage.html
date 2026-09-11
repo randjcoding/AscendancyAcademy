@@ -1,0 +1,56 @@
+{% extends "app_base.html" %}
+{% block title %}Usage — {{ site_name }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Usage</h1>
+    <p class="muted">{{ month_label }}{% if student %} · {{ student.display_name }}{% endif %}. Joe and Kim can both see this.</p>
+  </div>
+</header>
+
+<section class="stat-row">
+  <div class="stat">
+    <span class="muted">This month</span>
+    <strong>${{ '%.3f'|format(month_total) }}</strong>
+  </div>
+  <div class="stat">
+    <span class="muted">Calls</span>
+    <strong>{{ rows|length }}</strong>
+  </div>
+</section>
+
+<section class="panel">
+  {% if rows %}
+  <div class="table-wrap">
+    <table class="sheet">
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Who</th>
+          <th>Model</th>
+          <th>What</th>
+          <th>Tokens</th>
+          <th>$</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.created_at.strftime('%b %d, %I:%M %p') }}</td>
+          <td>{{ names.get(row.user_id, 'Teacher') }}</td>
+          <td>{{ row.model or row.provider }}{% if row.key_name %} · {{ row.key_name }}{% endif %}</td>
+          <td>{{ row.purpose.replace('_', ' ') }}</td>
+          <td>{{ row.prompt_tokens + row.completion_tokens }}</td>
+          <td>${{ '%.4f'|format(row.usd) }}</td>
+          <td>{% if row.status == 'ok' %}Ok{% else %}{{ row.detail or 'Failed' }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No AI calls this month yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

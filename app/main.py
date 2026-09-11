@@ -11,7 +11,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.config import BASE_DIR, settings
 from app.routers import attendance, auth, calendar, courses, documents, grades, home, print_views, settings as settings_router
-from app.routers import tasks, theme
+from app.routers import tasks, theme, usage
 from app.seed import seed
 from app.services.schema import ensure_schema
 
@@ -76,6 +76,7 @@ def create_app() -> FastAPI:
     app.include_router(print_views.router)
     app.include_router(theme.router)
     app.include_router(settings_router.router)
+    app.include_router(usage.router)
     return app
 
 

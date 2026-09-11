@@ -15,6 +15,7 @@
     <a href="/calendar" class="{% if request.url.path.startswith('/calendar') %}is-current{% endif %}">Calendar</a>
     <a href="/tasks" class="{% if request.url.path.startswith('/tasks') %}is-current{% endif %}">To-do</a>
     <a href="/documents" class="{% if request.url.path.startswith('/documents') %}is-current{% endif %}">Papers</a>
+    <a href="/usage" class="{% if request.url.path.startswith('/usage') %}is-current{% endif %}">Usage</a>
     {% elif current_user and current_user.is_student %}
     <a href="/student" class="{% if request.url.path == '/student' %}is-current{% endif %}">Home</a>
     <a href="/grades" class="{% if request.url.path.startswith('/grades') %}is-current{% endif %}">Grades</a>

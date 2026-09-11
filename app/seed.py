@@ -1,4 +1,4 @@
-"""Idempotent seed: teachers, student, current school year."""
+"""Idempotent seed: teachers, student, current school year, named API keys."""
 from __future__ import annotations
 
 from datetime import date
@@ -14,10 +14,12 @@ from app.models import (
     Student,
     StudentTeacher,
     Teacher,
+    TeacherApiKey,
     User,
     UserKind,
 )
 from app.security import hash_password
+from app.services.secrets import encrypt_secret
 
 DEFAULT_CATEGORIES = (
     ("Tests", 40, 0),
@@ -35,6 +37,11 @@ COURSE_COLORS = (
     "#0F766E",
 )
 
+OLD_TEACHER2_EMAILS = (
+    "teacher@ascendancy.local",
+    "teacher@example.com",
+)
+
 
 def _upsert_user(
     db: Session,
@@ -45,9 +52,20 @@ def _upsert_user(
     password: str,
     kind: UserKind,
     is_admin: bool,
+    previous_emails: tuple[str, ...] = (),
 ) -> User:
     email_norm = email.lower().strip()
     user = db.scalar(select(User).where(User.email == email_norm))
+    if not user and previous_emails:
+        old = [e.lower().strip() for e in previous_emails]
+        user = db.scalar(select(User).where(User.email.in_(old)))
+        if user:
+            user.email = email_norm
+            user.first_name = first_name.strip()
+            user.last_name = last_name.strip()
+            db.add(user)
+            db.flush()
+            return user
     if user:
         return user
     user = User(
@@ -66,6 +84,29 @@ def _upsert_user(
     return user
 
 
+def _ensure_named_key(db: Session, user: User, name: str, provider: str, raw: str) -> None:
+    secret = (raw or "").strip()
+    if not secret:
+        return
+    existing = db.scalar(
+        select(TeacherApiKey).where(
+            TeacherApiKey.user_id == user.id,
+            TeacherApiKey.provider == provider,
+            TeacherApiKey.name == name,
+        )
+    )
+    if existing:
+        return
+    db.add(
+        TeacherApiKey(
+            user_id=user.id,
+            name=name,
+            provider=provider,
+            secret_enc=encrypt_secret(secret),
+        )
+    )
+
+
 def seed(db: Session | None = None) -> None:
     own = db is None
     if own:
@@ -80,7 +121,7 @@ def seed(db: Session | None = None) -> None:
             kind=UserKind.TEACHER,
             is_admin=True,
         )
-        wife = _upsert_user(
+        kim = _upsert_user(
             db,
             email=settings.teacher2_email,
             first_name=settings.teacher2_first_name,
@@ -88,6 +129,7 @@ def seed(db: Session | None = None) -> None:
             password=settings.teacher2_password,
             kind=UserKind.TEACHER,
             is_admin=True,
+            previous_emails=OLD_TEACHER2_EMAILS,
         )
         greg = _upsert_user(
             db,
@@ -104,10 +146,10 @@ def seed(db: Session | None = None) -> None:
             joe_t = Teacher(user_id=joe.id)
             db.add(joe_t)
             db.flush()
-        wife_t = db.scalar(select(Teacher).where(Teacher.user_id == wife.id))
-        if not wife_t:
-            wife_t = Teacher(user_id=wife.id)
-            db.add(wife_t)
+        kim_t = db.scalar(select(Teacher).where(Teacher.user_id == kim.id))
+        if not kim_t:
+            kim_t = Teacher(user_id=kim.id)
+            db.add(kim_t)
             db.flush()
         greg_s = db.scalar(select(Student).where(Student.user_id == greg.id))
         if not greg_s:
@@ -115,7 +157,7 @@ def seed(db: Session | None = None) -> None:
             db.add(greg_s)
             db.flush()
 
-        for teacher in (joe_t, wife_t):
+        for teacher in (joe_t, kim_t):
             link = db.scalar(
                 select(StudentTeacher).where(
                     StudentTeacher.student_id == greg_s.id,
@@ -141,6 +183,10 @@ def seed(db: Session | None = None) -> None:
         for user in db.scalars(select(User)).all():
             if user.theme_preference == "academy":
                 user.theme_preference = "ascendancy"
+
+        for teacher_user in (joe, kim):
+            _ensure_named_key(db, teacher_user, "OpenAI", "openai", settings.openai_api_key)
+            _ensure_named_key(db, teacher_user, "Anthropic", "anthropic", settings.anthropic_api_key)
 
         db.commit()
     finally:

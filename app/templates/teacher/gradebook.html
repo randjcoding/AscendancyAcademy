@@ -40,6 +40,7 @@
       <span class="pill">{{ book.kind_label }}</span>
       {% if book.author %}<span class="muted">{{ book.author }}</span>{% endif %}
       {% if book.code_label %}<span class="muted">{{ book.code_label }}</span>{% endif %}
+      <a class="docs-action" href="/courses/{{ course.id }}/books/{{ book.id }}">Edit</a>
       <form method="post" action="/courses/{{ course.id }}/books/{{ book.id }}/delete" class="inline-form" onsubmit="return confirm('Remove this book? Assignments stay.');">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button type="submit" class="linkish">Remove</button>
@@ -51,7 +52,7 @@
   <p class="muted">Scan the barcode, type the ISBN, or just the name. Then assigning pages is a page number.</p>
   {% endif %}
   {% set next_path = "/courses/" ~ course.id %}
-  {% include "partials/_book_add.html" %}
+  {% include "partials/_book_form.html" %}
 </section>
 
 <section class="panel">

@@ -91,6 +91,7 @@ class User(Base):
     sessions: Mapped[list["SessionRow"]] = relationship(back_populates="user")
     teacher_profile: Mapped[Optional["Teacher"]] = relationship(back_populates="user")
     student_profile: Mapped[Optional["Student"]] = relationship(back_populates="user")
+    api_keys: Mapped[list["TeacherApiKey"]] = relationship(back_populates="user")
 
     @property
     def full_name(self) -> str:
@@ -429,3 +430,39 @@ class Task(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
+
+
+class TeacherApiKey(Base):
+    __tablename__ = "teacher_api_keys"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(80))
+    provider: Mapped[str] = mapped_column(String(32), index=True)
+    secret_enc: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    user: Mapped["User"] = relationship(back_populates="api_keys")
+
+
+class AiUsageEvent(Base):
+    __tablename__ = "ai_usage_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    student_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("students.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(32), index=True)
+    model: Mapped[str] = mapped_column(String(80), default="")
+    key_name: Mapped[str] = mapped_column(String(80), default="")
+    purpose: Mapped[str] = mapped_column(String(40), default="read_pages", index=True)
+    prompt_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    completion_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    usd: Mapped[float] = mapped_column(Float, default=0)
+    status: Mapped[str] = mapped_column(String(20), default="ok")
+    detail: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)

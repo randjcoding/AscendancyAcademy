@@ -140,6 +140,21 @@ def add_book(
     course = db.get(Course, course_id)
     if not course:
         return RedirectResponse("/courses", status_code=303)
+    fields = _book_fields(title, author, notes, kind, isbn, upc, lookup)
+    if not fields["title"]:
+        return RedirectResponse(f"{dest}?error=Type+a+title+or+scan+an+ISBN.", status_code=303)
+    db.add(
+        Book(
+            course_id=course.id,
+            sort_order=len(course.books),
+            **fields,
+        )
+    )
+    db.commit()
+    return RedirectResponse(f"{dest}?ok=Book+added.", status_code=303)
+
+
+def _book_fields(title, author, notes, kind, isbn, upc, lookup):
     name = title.strip()
     author_name = author.strip()
     code = (isbn or upc or lookup).strip()
@@ -153,25 +168,80 @@ def add_book(
             upc = hit.upc or upc or code
             if kind == "other":
                 kind = hit.kind
-    if not name:
-        return RedirectResponse(f"{dest}?error=Type+a+title+or+scan+an+ISBN.", status_code=303)
     kind_val = kind.strip().lower()
     if kind_val not in {k.value for k in BookKind}:
         kind_val = BookKind.OTHER.value
-    db.add(
-        Book(
-            course_id=course.id,
-            title=name,
-            author=author_name,
-            notes=notes.strip(),
-            kind=kind_val,
-            isbn=books_svc.normalize_code(isbn) or books_svc.normalize_code(lookup),
-            upc=books_svc.normalize_code(upc) or books_svc.normalize_code(lookup),
-            sort_order=len(course.books),
-        )
+    return {
+        "title": name,
+        "author": author_name,
+        "notes": notes.strip(),
+        "kind": kind_val,
+        "isbn": books_svc.normalize_code(isbn) or books_svc.normalize_code(lookup),
+        "upc": books_svc.normalize_code(upc) or books_svc.normalize_code(lookup),
+    }
+
+
+@router.get("/{course_id}/books/{book_id}")
+def edit_book_page(
+    course_id: int,
+    book_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_teacher),
+):
+    course = db.get(Course, course_id)
+    book = db.get(Book, book_id)
+    if not course or not book or book.course_id != course_id:
+        return RedirectResponse("/courses", status_code=303)
+    return render(
+        request,
+        "teacher/book_edit.html",
+        user,
+        _db=db,
+        course=course,
+        book=book,
+        error=request.query_params.get("error", ""),
     )
+
+
+@router.post("/{course_id}/books/{book_id}")
+def update_book(
+    course_id: int,
+    book_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_teacher),
+    csrf_token: str = Form(""),
+    title: str = Form(""),
+    author: str = Form(""),
+    notes: str = Form(""),
+    kind: str = Form("other"),
+    isbn: str = Form(""),
+    upc: str = Form(""),
+    lookup: str = Form(""),
+    next: str = Form(""),
+):
+    dest = next if next.startswith("/") else f"/courses/{course_id}"
+    if not verify_csrf(session_token(request), csrf_token):
+        return RedirectResponse(f"{dest}?error=That+form+expired.", status_code=303)
+    book = db.get(Book, book_id)
+    if not book or book.course_id != course_id:
+        return RedirectResponse("/courses", status_code=303)
+    fields = _book_fields(title, author, notes, kind, isbn, upc, lookup)
+    if not fields["title"]:
+        return RedirectResponse(
+            f"/courses/{course_id}/books/{book_id}?error=Type+a+title+or+scan+an+ISBN.",
+            status_code=303,
+        )
+    book.title = fields["title"]
+    book.author = fields["author"]
+    book.notes = fields["notes"]
+    book.kind = fields["kind"]
+    book.isbn = fields["isbn"]
+    book.upc = fields["upc"]
+    db.add(book)
     db.commit()
-    return RedirectResponse(f"{dest}?ok=Book+added.", status_code=303)
+    return RedirectResponse(f"{dest}?ok=Book+updated.", status_code=303)
 
 
 @lookup_router.get("/api/books/lookup")

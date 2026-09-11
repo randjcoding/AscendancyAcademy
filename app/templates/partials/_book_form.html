@@ -1,11 +1,13 @@
-<form method="post" action="/courses/{{ course.id }}/books" class="form form--grid book-find" data-book-find>
+{% set book = book|default(None) %}
+{% set form_action = form_action|default("/courses/" ~ course.id ~ "/books") %}
+<form method="post" action="{{ form_action }}" class="form form--grid book-find" data-book-find>
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="hidden" name="next" value="{{ next_path }}">
   <p class="span-2 muted">Type an ISBN / UPC or the title, or tap Scan to use the camera or a photo of the barcode.</p>
   <label class="field span-2">
     <span class="field__label">ISBN, UPC, or title</span>
     <div class="find-row">
-      <input class="input" name="lookup" data-book-query placeholder="978… or the name on the cover" autocomplete="off">
+      <input class="input" name="lookup" data-book-query placeholder="978… or the name on the cover" autocomplete="off" value="{{ book.isbn if book and book.isbn else '' }}">
       <button type="button" class="btn" data-book-search>Find</button>
       <button type="button" class="btn" data-book-scan>Scan</button>
       <input type="file" accept="image/*" capture="environment" data-book-photo hidden>
@@ -14,26 +16,26 @@
   <div class="span-2 book-hits" data-book-hits hidden></div>
   <label class="field">
     <span class="field__label">Title</span>
-    <input class="input" name="title" data-book-title placeholder="Filled in after Find, or type it">
+    <input class="input" name="title" data-book-title placeholder="Filled in after Find, or type it" value="{{ book.title if book else '' }}">
   </label>
   <label class="field">
     <span class="field__label">Author</span>
-    <input class="input" name="author" data-book-author>
+    <input class="input" name="author" data-book-author value="{{ book.author if book else '' }}">
   </label>
   <label class="field">
     <span class="field__label">What kind</span>
     <select class="input" name="kind" data-book-kind>
       {% for value, label in book_kinds %}
-      <option value="{{ value }}">{{ label }}</option>
+      <option value="{{ value }}" {% if book and book.kind == value %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
   </label>
   <label class="field">
     <span class="field__label">ISBN</span>
-    <input class="input" name="isbn" data-book-isbn>
+    <input class="input" name="isbn" data-book-isbn value="{{ book.isbn if book else '' }}">
   </label>
-  <input type="hidden" name="upc" data-book-upc value="">
+  <input type="hidden" name="upc" data-book-upc value="{{ book.upc if book else '' }}">
   <div class="span-2">
-    <button type="submit" class="btn btn--primary">Save book</button>
+    <button type="submit" class="btn btn--primary">{% if book %}Save changes{% else %}Save book{% endif %}</button>
   </div>
 </form>
