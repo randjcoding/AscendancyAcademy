@@ -6,6 +6,8 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 
+from sqlalchemy.orm import Session
+
 from app.database import get_db
 from app.dependencies import render, require_teacher, session_token
 from app.models import User
@@ -21,6 +23,57 @@ def _err(rel: str, message: str) -> RedirectResponse:
         f"{docs.href(rel)}?error={quote(message)}",
         status_code=303,
     )
+
+
+@router.get("/photos")
+def photos_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_teacher),
+):
+    docs.ensure_library_layout()
+    listing = docs.list_dir(docs.PHOTOS_FOLDER)
+    return render(
+        request,
+        "documents/photos.html",
+        user,
+        _db=db,
+        listing=listing,
+        error=request.query_params.get("error", ""),
+        ok=request.query_params.get("ok", ""),
+    )
+
+
+@router.post("/photos")
+async def upload_photos(
+    request: Request,
+    user: User = Depends(require_teacher),
+    csrf_token: str = Form(""),
+    files: list[UploadFile] = File(default=[]),
+):
+    docs.ensure_library_layout()
+    if not verify_csrf(session_token(request), csrf_token):
+        return RedirectResponse("/photos?error=That+form+expired.+Try+again.", status_code=303)
+    saved = 0
+    last_error = ""
+    for item in files:
+        if not item.filename:
+            continue
+        data = await item.read()
+        try:
+            docs.save_upload(docs.PHOTOS_FOLDER, item.filename, data)
+            saved += 1
+        except DocumentsError as exc:
+            last_error = exc.message
+    if not saved:
+        return RedirectResponse(
+            f"/photos?error={quote(last_error or 'Choose one or more pictures.')}",
+            status_code=303,
+        )
+    extra = f"?ok={saved}+photo{'s' if saved != 1 else ''}+saved."
+    if last_error:
+        extra = f"?ok={saved}+saved.&error={quote(last_error)}"
+    return RedirectResponse("/photos" + extra.replace(" ", "+"), status_code=303)
 
 
 @router.get("/documents")

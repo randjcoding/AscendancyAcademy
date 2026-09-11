@@ -13,6 +13,7 @@ from app.models import AttendanceDay, AttendanceStatus, SchoolYear, Student
 CYCLE = [
     AttendanceStatus.PRESENT,
     AttendanceStatus.ABSENT,
+    AttendanceStatus.SICK,
     AttendanceStatus.EXCUSED,
     AttendanceStatus.OFF,
 ]
@@ -22,6 +23,7 @@ CYCLE = [
 class AttendanceTotals:
     present: int
     absent: int
+    sick: int
     excused: int
     off: int
     school_days: int
@@ -55,14 +57,17 @@ def implied_status(on: date, record: AttendanceDay | None) -> AttendanceStatus |
     return None
 
 
-def next_status(current: AttendanceStatus | None) -> AttendanceStatus:
+def next_status(current: AttendanceStatus | None) -> AttendanceStatus | None:
+    """Return the next mark. None means clear the day."""
     if current is None:
         return AttendanceStatus.PRESENT
     try:
         idx = CYCLE.index(current)
     except ValueError:
         return AttendanceStatus.PRESENT
-    return CYCLE[(idx + 1) % len(CYCLE)]
+    if idx >= len(CYCLE) - 1:
+        return None
+    return CYCLE[idx + 1]
 
 
 def totals(db: Session, student: Student, year: SchoolYear) -> AttendanceTotals:
@@ -74,13 +79,15 @@ def totals(db: Session, student: Student, year: SchoolYear) -> AttendanceTotals:
     ).all()
     present = sum(1 for r in rows if r.status == AttendanceStatus.PRESENT)
     absent = sum(1 for r in rows if r.status == AttendanceStatus.ABSENT)
+    sick = sum(1 for r in rows if r.status == AttendanceStatus.SICK)
     excused = sum(1 for r in rows if r.status == AttendanceStatus.EXCUSED)
     off = sum(1 for r in rows if r.status == AttendanceStatus.OFF)
-    school_days = present + absent + excused
+    school_days = present + absent + sick + excused
     remaining = max(0, year.instructional_day_target - present)
     return AttendanceTotals(
         present=present,
         absent=absent,
+        sick=sick,
         excused=excused,
         off=off,
         school_days=school_days,
@@ -101,6 +108,7 @@ def week_strip(db: Session, student_id: int, around: date | None = None) -> list
                 "date": day,
                 "status": implied_status(day, record),
                 "recorded": record is not None,
+                "locked": bool(record.locked) if record else False,
                 "is_today": day == today,
             }
         )
@@ -120,6 +128,7 @@ def month_cells(db: Session, student_id: int, year: int, month: int) -> list[dic
                     "in_month": day.month == month,
                     "status": implied_status(day, record) if day.month == month else None,
                     "recorded": record is not None and day.month == month,
+                    "locked": bool(record.locked) if record and day.month == month else False,
                     "is_today": day == date.today(),
                 }
             )

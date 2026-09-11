@@ -1,0 +1,9 @@
+<div class="view-toggle" role="group" aria-label="Cards or table">
+  {% for item in list_views %}
+  <form method="post" action="/view" class="inline-form">
+    <input type="hidden" name="view" value="{{ item }}">
+    <input type="hidden" name="next" value="{{ request.url.path }}">
+    <button type="submit" class="btn btn--small {% if list_view == item %}btn--primary{% endif %}">{{ list_view_labels[item] }}</button>
+  </form>
+  {% endfor %}
+</div>

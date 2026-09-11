@@ -8,10 +8,11 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies import first_student, render, require_teacher, session_token, teacher_profile
-from app.models import Book, BookKind, Course, CourseTeacher, Enrollment, GradeCategory, User
-from app.services import books as books_svc
+from app.models import Book, Course, CourseBook, CourseTeacher, Enrollment, GradeCategory, User
 from app.security import verify_csrf
-from app.seed import COURSE_COLORS
+from app.seed import COURSE_COLOR_VALUES, COURSE_COLORS
+from app.services import books as books_svc
+from app.services import catalog as catalog_svc
 from app.services import attendance as attendance_svc
 from app.services import grades as grades_svc
 
@@ -35,7 +36,7 @@ def course_list(
                 joinedload(Course.enrollments),
                 joinedload(Course.assignments),
                 joinedload(Course.categories),
-                joinedload(Course.books),
+                joinedload(Course.book_links).joinedload(CourseBook.book),
             )
             .order_by(Course.title.asc())
         ).unique().all()
@@ -89,7 +90,8 @@ def create_course(
     ]
     if abs(sum(w for _, w, _ in weights) - 100) > 0.01:
         return RedirectResponse("/courses?error=Category+weights+must+add+up+to+100.", status_code=303)
-    course = Course(school_year_id=year.id, title=name, color=color.strip() or "#2D6A4F", notes=notes.strip())
+    chosen = color.strip() if color.strip() in COURSE_COLOR_VALUES else COURSE_COLOR_VALUES[0]
+    course = Course(school_year_id=year.id, title=name, color=chosen, notes=notes.strip())
     db.add(course)
     db.flush()
     db.add(CourseTeacher(course_id=course.id, teacher_id=teacher.id))
@@ -140,45 +142,35 @@ def add_book(
     course = db.get(Course, course_id)
     if not course:
         return RedirectResponse("/courses", status_code=303)
-    fields = _book_fields(title, author, notes, kind, isbn, upc, lookup)
+    fields = catalog_svc.book_fields(title, author, notes, kind, isbn, upc, lookup)
     if not fields["title"]:
         return RedirectResponse(f"{dest}?error=Type+a+title+or+scan+an+ISBN.", status_code=303)
-    db.add(
-        Book(
-            course_id=course.id,
-            sort_order=len(course.books),
-            **fields,
-        )
-    )
+    book = catalog_svc.create_book(db, fields)
+    catalog_svc.link_book(db, course, book)
     db.commit()
     return RedirectResponse(f"{dest}?ok=Book+added.", status_code=303)
 
 
-def _book_fields(title, author, notes, kind, isbn, upc, lookup):
-    name = title.strip()
-    author_name = author.strip()
-    code = (isbn or upc or lookup).strip()
-    if not name and code:
-        hits = books_svc.lookup(code)
-        if hits:
-            hit = hits[0]
-            name = hit.title
-            author_name = author_name or hit.author
-            isbn = hit.isbn or isbn
-            upc = hit.upc or upc or code
-            if kind == "other":
-                kind = hit.kind
-    kind_val = kind.strip().lower()
-    if kind_val not in {k.value for k in BookKind}:
-        kind_val = BookKind.OTHER.value
-    return {
-        "title": name,
-        "author": author_name,
-        "notes": notes.strip(),
-        "kind": kind_val,
-        "isbn": books_svc.normalize_code(isbn) or books_svc.normalize_code(lookup),
-        "upc": books_svc.normalize_code(upc) or books_svc.normalize_code(lookup),
-    }
+@router.post("/{course_id}/books/link")
+def link_existing_book(
+    course_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_teacher),
+    csrf_token: str = Form(""),
+    book_id: int = Form(0),
+    next: str = Form(""),
+):
+    dest = next if next.startswith("/") else f"/courses/{course_id}"
+    if not verify_csrf(session_token(request), csrf_token):
+        return RedirectResponse(f"{dest}?error=That+form+expired.", status_code=303)
+    course = db.get(Course, course_id)
+    book = db.get(Book, book_id) if book_id else None
+    if not course or not book:
+        return RedirectResponse(f"{dest}?error=Pick+a+school+book.", status_code=303)
+    catalog_svc.link_book(db, course, book)
+    db.commit()
+    return RedirectResponse(f"{dest}?ok=Book+added+to+this+class.", status_code=303)
 
 
 @router.get("/{course_id}/books/{book_id}")
@@ -189,19 +181,7 @@ def edit_book_page(
     db: Session = Depends(get_db),
     user: User = Depends(require_teacher),
 ):
-    course = db.get(Course, course_id)
-    book = db.get(Book, book_id)
-    if not course or not book or book.course_id != course_id:
-        return RedirectResponse("/courses", status_code=303)
-    return render(
-        request,
-        "teacher/book_edit.html",
-        user,
-        _db=db,
-        course=course,
-        book=book,
-        error=request.query_params.get("error", ""),
-    )
+    return RedirectResponse(f"/books/{book_id}", status_code=303)
 
 
 @router.post("/{course_id}/books/{book_id}")
@@ -225,9 +205,9 @@ def update_book(
     if not verify_csrf(session_token(request), csrf_token):
         return RedirectResponse(f"{dest}?error=That+form+expired.", status_code=303)
     book = db.get(Book, book_id)
-    if not book or book.course_id != course_id:
+    if not book or not catalog_svc.linked(book, course_id):
         return RedirectResponse("/courses", status_code=303)
-    fields = _book_fields(title, author, notes, kind, isbn, upc, lookup)
+    fields = catalog_svc.book_fields(title, author, notes, kind, isbn, upc, lookup)
     if not fields["title"]:
         return RedirectResponse(
             f"/courses/{course_id}/books/{book_id}?error=Type+a+title+or+scan+an+ISBN.",
@@ -267,7 +247,7 @@ def delete_book(
     if not verify_csrf(session_token(request), csrf_token):
         return RedirectResponse(f"{dest}?error=That+form+expired.", status_code=303)
     book = db.get(Book, book_id)
-    if book and book.course_id == course_id:
-        db.delete(book)
+    if book and catalog_svc.linked(book, course_id):
+        catalog_svc.unlink_book(db, course_id, book_id)
         db.commit()
-    return RedirectResponse(f"{dest}?ok=Book+removed.", status_code=303)
+    return RedirectResponse(f"{dest}?ok=Book+removed+from+this+class.", status_code=303)

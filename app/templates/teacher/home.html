@@ -26,7 +26,7 @@
     {% endif %}
   </div>
   <div class="attend-actions">
-    {% for label, value in [("Present", "present"), ("Absent", "absent"), ("Excused", "excused"), ("Day off", "off")] %}
+    {% for label, value in [("Present", "present"), ("Absent", "absent"), ("Sick", "sick"), ("Excused", "excused"), ("Day off", "off"), ("Clear", "clear")] %}
     <form method="post" action="/attendance/today">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="student_id" value="{{ student.id }}">
@@ -38,18 +38,30 @@
   </div>
   <div class="week-strip" aria-label="This week">
     {% for day in week %}
-    <form method="post" action="/attendance/day" class="week-day {% if day.is_today %}is-today{% endif %} status-{{ day.status.value if day.status else 'empty' }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="student_id" value="{{ student.id }}">
-      <input type="hidden" name="on_date" value="{{ day.date.isoformat() }}">
-      <input type="hidden" name="status" value="">
-      <input type="hidden" name="next" value="/teacher">
-      <button type="submit">
-        <span class="week-day__name">{{ day.date.strftime('%a') }}</span>
-        <span class="week-day__num">{{ day.date.day }}</span>
-        <span class="week-day__mark">{% if day.status %}{{ day.status.value[0]|upper }}{% else %}·{% endif %}</span>
-      </button>
-    </form>
+    <div class="week-day {% if day.is_today %}is-today{% endif %} status-{{ day.status.value if day.status else 'empty' }} {% if day.locked %}is-locked{% endif %}">
+      <form method="post" action="/attendance/day">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="student_id" value="{{ student.id }}">
+        <input type="hidden" name="on_date" value="{{ day.date.isoformat() }}">
+        <input type="hidden" name="status" value="">
+        <input type="hidden" name="next" value="/teacher">
+        <button type="submit" {% if day.locked %}disabled{% endif %}>
+          <span class="week-day__name">{{ day.date.strftime('%a') }}</span>
+          <span class="week-day__num">{{ day.date.day }}</span>
+          <span class="week-day__mark">{% if day.status %}{{ day.status.value[0]|upper }}{% else %}·{% endif %}</span>
+        </button>
+      </form>
+      {% if day.recorded %}
+      <form method="post" action="/attendance/day" class="lock-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="student_id" value="{{ student.id }}">
+        <input type="hidden" name="on_date" value="{{ day.date.isoformat() }}">
+        <input type="hidden" name="status" value="{% if day.locked %}unlock{% else %}lock{% endif %}">
+        <input type="hidden" name="next" value="/teacher">
+        <button type="submit" class="lock-btn" title="{% if day.locked %}Unlock{% else %}Lock{% endif %}">{% if day.locked %}Locked{% else %}Lock{% endif %}</button>
+      </form>
+      {% endif %}
+    </div>
     {% endfor %}
   </div>
 </section>
@@ -148,6 +160,7 @@
 <section class="panel">
   <div class="panel__head">
     <h2>Classes and books</h2>
+    <a class="btn btn--small" href="/books">School books</a>
     <a class="btn btn--small" href="/courses">Manage classes</a>
   </div>
   {% if courses %}
@@ -163,7 +176,7 @@
           <span class="pill">{{ book.kind_label }}</span>
           {% if book.author %}<span class="muted">{{ book.author }}</span>{% endif %}
           {% if book.code_label %}<span class="muted">{{ book.code_label }}</span>{% endif %}
-          <a href="/courses/{{ course.id }}/books/{{ book.id }}">Edit</a>
+          <a href="/books/{{ book.id }}">Edit</a>
         </li>
         {% endfor %}
       </ul>
@@ -217,7 +230,8 @@
   <a class="quick-btn" href="/attendance">Full attendance</a>
   <a class="quick-btn" href="/calendar">Calendar</a>
   <a class="quick-btn" href="/tasks">To-do</a>
-  <a class="quick-btn" href="/documents">Papers</a>
+  <a class="quick-btn" href="/photos">Add photos</a>
+  <a class="quick-btn" href="/documents">Documents</a>
   <a class="quick-btn" href="/print/attendance/month?blank=1" target="_blank">Print this month</a>
   <a class="quick-btn" href="/print/attendance/year?blank=1" target="_blank">Print year packet</a>
 </section>

@@ -28,7 +28,7 @@ def test_look_cookie_and_density():
         home = client.get("/")
         assert 'data-theme="forest"' in home.text
         assert 'data-density="compact"' in home.text
-        assert "Look" in home.text or "Forest" in home.text
+        assert "Themes" in home.text or "Forest" in home.text
 
 
 def test_login_doors():
@@ -82,7 +82,10 @@ def test_attendance_cycle():
 
     assert next_status(None) == AttendanceStatus.PRESENT
     assert next_status(AttendanceStatus.PRESENT) == AttendanceStatus.ABSENT
-    assert next_status(AttendanceStatus.OFF) == AttendanceStatus.PRESENT
+    assert next_status(AttendanceStatus.ABSENT) == AttendanceStatus.SICK
+    assert next_status(AttendanceStatus.SICK) == AttendanceStatus.EXCUSED
+    assert next_status(AttendanceStatus.EXCUSED) == AttendanceStatus.OFF
+    assert next_status(AttendanceStatus.OFF) is None
 
 
 def test_page_parsing():

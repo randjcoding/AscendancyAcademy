@@ -31,25 +31,84 @@
 {% endif %}
 
 <section class="panel">
-  <h2>Books</h2>
+  <div class="panel__head">
+    <h2>Books</h2>
+    {% include "partials/_view_toggle.html" %}
+  </div>
   {% if books %}
-  <ul class="plain-list">
-    {% for book in books %}
-    <li>
-      <strong>{{ book.title }}</strong>
-      <span class="pill">{{ book.kind_label }}</span>
-      {% if book.author %}<span class="muted">{{ book.author }}</span>{% endif %}
-      {% if book.code_label %}<span class="muted">{{ book.code_label }}</span>{% endif %}
-      <a class="docs-action" href="/courses/{{ course.id }}/books/{{ book.id }}">Edit</a>
-      <form method="post" action="/courses/{{ course.id }}/books/{{ book.id }}/delete" class="inline-form" onsubmit="return confirm('Remove this book? Assignments stay.');">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="linkish">Remove</button>
-      </form>
-    </li>
-    {% endfor %}
-  </ul>
+    {% if list_view == "table" %}
+    <div class="table-wrap">
+      <table class="sheet">
+        <thead>
+          <tr>
+            <th>Book</th>
+            <th>Kind</th>
+            <th>Edit</th>
+            <th>Remove</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for book in books %}
+          <tr>
+            <td class="wrap-text">
+              <strong>{{ book.title }}</strong>
+              {% if book.author %}<div class="muted">{{ book.author }}</div>{% endif %}
+              {% if book.code_label %}<div class="muted">{{ book.code_label }}</div>{% endif %}
+            </td>
+            <td>{{ book.kind_label }}</td>
+            <td><a href="/books/{{ book.id }}">Edit</a></td>
+            <td>
+              <form method="post" action="/courses/{{ course.id }}/books/{{ book.id }}/delete" class="inline-form" onsubmit="return confirm('Remove this book from the class? The school book stays.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="linkish">Remove</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card-grid">
+      {% for book in books %}
+      <article class="item-card">
+        <h3 class="wrap-text">{{ book.title }}</h3>
+        <p><span class="pill">{{ book.kind_label }}</span></p>
+        {% if book.author %}<p class="muted wrap-text">{{ book.author }}</p>{% endif %}
+        {% if book.code_label %}<p class="muted">{{ book.code_label }}</p>{% endif %}
+        <p><a class="btn btn--small" href="/books/{{ book.id }}">Edit</a></p>
+        <form method="post" action="/courses/{{ course.id }}/books/{{ book.id }}/delete" class="danger-zone" onsubmit="return confirm('Remove this book from the class? The school book stays.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn--ghost">Remove</button>
+        </form>
+      </article>
+      {% endfor %}
+    </div>
+    {% endif %}
   {% else %}
-  <p class="muted">Scan the barcode, type the ISBN, or just the name. Then assigning pages is a page number.</p>
+  <p class="muted">Use a school book, or add a new one here.</p>
+  {% endif %}
+  {% set unused = catalog_books|default([]) %}
+  {% set linked_ids = books|map(attribute='id')|list %}
+  {% if unused %}
+  <form method="post" action="/courses/{{ course.id }}/books/link" class="form form--grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="next" value="/courses/{{ course.id }}">
+    <label class="field">
+      <span class="field__label">Use a school book</span>
+      <select class="input" name="book_id">
+        <option value="0">Pick one</option>
+        {% for book in unused %}
+        {% if book.id not in linked_ids %}
+        <option value="{{ book.id }}">{{ book.title }}{% if book.kind_label %} ({{ book.kind_label }}){% endif %}</option>
+        {% endif %}
+        {% endfor %}
+      </select>
+    </label>
+    <div class="field">
+      <button type="submit" class="btn">Add to this class</button>
+    </div>
+  </form>
   {% endif %}
   {% set next_path = "/courses/" ~ course.id %}
   {% include "partials/_book_form.html" %}

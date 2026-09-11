@@ -39,6 +39,7 @@ class AccountStatus(str, enum.Enum):
 class AttendanceStatus(str, enum.Enum):
     PRESENT = "present"
     ABSENT = "absent"
+    SICK = "sick"
     EXCUSED = "excused"
     OFF = "off"
 
@@ -80,6 +81,7 @@ class User(Base):
     )
     theme_preference: Mapped[str] = mapped_column(String(20), default="ascendancy")
     density_preference: Mapped[str] = mapped_column(String(20), default="cozy")
+    list_view_preference: Mapped[str] = mapped_column(String(20), default="cards")
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
     failed_login_count: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -227,27 +229,35 @@ class Course(Base):
     assignments: Mapped[list["Assignment"]] = relationship(
         back_populates="course", cascade="all, delete-orphan"
     )
-    books: Mapped[list["Book"]] = relationship(
-        back_populates="course", cascade="all, delete-orphan", order_by="Book.sort_order"
+    book_links: Mapped[list["CourseBook"]] = relationship(
+        back_populates="course", cascade="all, delete-orphan", order_by="CourseBook.sort_order"
     )
+
+    @property
+    def books(self) -> list["Book"]:
+        return [link.book for link in self.book_links]
 
 
 class Book(Base):
     __tablename__ = "books"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
     title: Mapped[str] = mapped_column(String(200))
     author: Mapped[str] = mapped_column(String(160), default="")
     notes: Mapped[str] = mapped_column(Text, default="")
     kind: Mapped[str] = mapped_column(String(20), default=BookKind.OTHER.value)
     isbn: Mapped[str] = mapped_column(String(32), default="")
     upc: Mapped[str] = mapped_column(String(32), default="")
-    sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
-    course: Mapped["Course"] = relationship(back_populates="books")
+    course_links: Mapped[list["CourseBook"]] = relationship(
+        back_populates="book", cascade="all, delete-orphan"
+    )
     assignments: Mapped[list["Assignment"]] = relationship(back_populates="book")
+
+    @property
+    def courses(self) -> list["Course"]:
+        return [link.course for link in self.course_links]
 
     @property
     def kind_label(self) -> str:
@@ -259,6 +269,19 @@ class Book(Base):
     @property
     def code_label(self) -> str:
         return (self.isbn or self.upc or "").strip()
+
+
+class CourseBook(Base):
+    __tablename__ = "course_books"
+    __table_args__ = (UniqueConstraint("course_id", "book_id", name="uq_course_book"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    book_id: Mapped[int] = mapped_column(ForeignKey("books.id", ondelete="CASCADE"), index=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    course: Mapped["Course"] = relationship(back_populates="book_links")
+    book: Mapped["Book"] = relationship(back_populates="course_links")
 
 
 class CourseTeacher(Base):
@@ -378,6 +401,7 @@ class AttendanceDay(Base):
     )
     on_date: Mapped[date] = mapped_column(Date, index=True)
     status: Mapped[AttendanceStatus] = mapped_column(_enum(AttendanceStatus, "attendance_status"))
+    locked: Mapped[bool] = mapped_column(Boolean, default=False)
     notes: Mapped[str] = mapped_column(Text, default="")
     entered_by_user_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True

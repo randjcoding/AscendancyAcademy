@@ -4,60 +4,96 @@
 <header class="page-head">
   <div>
     <h1>Classes</h1>
-    <p class="muted">Add a class, then add its books so page assignments are easy.</p>
+    <p class="muted">Add a class, then add books from the school list or inside the class.</p>
+  </div>
+  <div class="page-head__actions">
+    {% include "partials/_view_toggle.html" %}
+    <button type="button" class="btn btn--primary" onclick="document.getElementById('newClass').showModal()">New class</button>
   </div>
 </header>
 
 {% if error %}<div class="status status--error">{{ error }}</div>{% endif %}
 {% if ok %}<div class="status status--ok">{{ ok }}</div>{% endif %}
 
-<section class="panel">
-  <h2>New class</h2>
-  <form method="post" action="/courses/new" class="form form--grid">
+<dialog class="app-modal" id="newClass">
+  <form method="post" action="/courses/new" class="form form--grid app-modal__card">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label class="field">
+    <div class="app-modal__head">
+      <h2>New class</h2>
+      <button type="button" class="btn btn--ghost btn--small" onclick="document.getElementById('newClass').close()">Close</button>
+    </div>
+    <label class="field span-2">
       <span class="field__label">Class name</span>
       <input class="input" name="title" required placeholder="Math, History, Science…">
     </label>
-    <label class="field">
-      <span class="field__label">Color</span>
-      <select class="input" name="color">
-        {% for color in colors %}
-        <option value="{{ color }}" {% if loop.first %}selected{% endif %}>{{ color }}</option>
+    <fieldset class="span-2">
+      <legend class="field__label">Color</legend>
+      <div class="color-picks">
+        {% for hex, name in colors %}
+        <label class="color-swatch">
+          <input type="radio" name="color" value="{{ hex }}" {% if loop.first %}checked{% endif %}>
+          <span class="color-swatch__chip" style="--swatch: {{ hex }}"></span>
+          <span>{{ name }}</span>
+        </label>
         {% endfor %}
-      </select>
-    </label>
+      </div>
+    </fieldset>
     <p class="span-2 muted">How much each kind of work is worth. These four numbers must add to 100.</p>
     <label class="field"><span class="field__label">Tests %</span><input class="input" type="number" name="tests_weight" value="40" min="0" max="100" step="1"></label>
     <label class="field"><span class="field__label">Quizzes %</span><input class="input" type="number" name="quizzes_weight" value="20" min="0" max="100" step="1"></label>
     <label class="field"><span class="field__label">Assignments %</span><input class="input" type="number" name="assignments_weight" value="30" min="0" max="100" step="1"></label>
     <label class="field"><span class="field__label">Other %</span><input class="input" type="number" name="other_weight" value="10" min="0" max="100" step="1"></label>
-    <div class="span-2">
+    <div class="span-2 app-modal__actions">
       <button type="submit" class="btn btn--primary">Create class</button>
     </div>
   </form>
-</section>
+</dialog>
 
 {% if rows %}
-<section class="card-grid">
-  {% for course, enrollment, result in rows %}
-  <article class="class-card" style="--course: {{ course.color }}">
-    <h2><a href="/courses/{{ course.id }}">{{ course.title }}</a></h2>
-    <p class="muted">
-      {% if result and result.percent is not none %}
-      {{ result.percent }}% · {{ result.letter }}
-      {% else %}
-      No scores yet
-      {% endif %}
-      {% if course.books %}
-      · {{ course.books|length }} book{% if course.books|length != 1 %}s{% endif %}
-      {% endif %}
-    </p>
-    <p><a class="btn btn--small" href="/courses/{{ course.id }}">Open class</a></p>
-  </article>
-  {% endfor %}
-</section>
+  {% if list_view == "table" %}
+  <div class="table-wrap panel">
+    <table class="sheet">
+      <thead>
+        <tr>
+          <th>Class</th>
+          <th>Grade</th>
+          <th>Books</th>
+          <th>Open</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for course, enrollment, result in rows %}
+        <tr>
+          <td class="wrap-text"><strong>{{ course.title }}</strong></td>
+          <td>{% if result and result.percent is not none %}{{ result.percent }}% · {{ result.letter }}{% else %}No scores yet{% endif %}</td>
+          <td>{{ course.books|length }}</td>
+          <td><a href="/courses/{{ course.id }}">Open</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <section class="card-grid">
+    {% for course, enrollment, result in rows %}
+    <article class="class-card item-card" style="--course: {{ course.color }}">
+      <h2 class="wrap-text"><a href="/courses/{{ course.id }}">{{ course.title }}</a></h2>
+      <p class="muted">
+        {% if result and result.percent is not none %}
+        {{ result.percent }}% · {{ result.letter }}
+        {% else %}
+        No scores yet
+        {% endif %}
+        {% if course.books %}
+        · {{ course.books|length }} book{% if course.books|length != 1 %}s{% endif %}
+        {% endif %}
+      </p>
+      <p><a class="btn btn--small" href="/courses/{{ course.id }}">Open class</a></p>
+    </article>
+    {% endfor %}
+  </section>
+  {% endif %}
 {% else %}
-<p class="muted">No classes yet. Create the first one above.</p>
+<p class="muted">No classes yet. Tap New class to make the first one.</p>
 {% endif %}
 {% endblock %}

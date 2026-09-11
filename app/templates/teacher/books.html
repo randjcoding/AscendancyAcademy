@@ -1,0 +1,81 @@
+{% extends "app_base.html" %}
+{% block title %}Books — {{ site_name }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Books</h1>
+    <p class="muted">Add a book to the school, then assign it to one or more classes.</p>
+  </div>
+  {% include "partials/_view_toggle.html" %}
+</header>
+
+{% if error %}<div class="status status--error">{{ error }}</div>{% endif %}
+{% if ok %}<div class="status status--ok">{{ ok }}</div>{% endif %}
+
+{% if books %}
+  {% if list_view == "table" %}
+  <div class="table-wrap panel">
+    <table class="sheet">
+      <thead>
+        <tr>
+          <th>Book</th>
+          <th>Kind</th>
+          <th>Classes</th>
+          <th>Edit</th>
+          <th>Remove</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for book in books %}
+        <tr>
+          <td>
+            <strong>{{ book.title }}</strong>
+            {% if book.author %}<div class="muted wrap-text">{{ book.author }}</div>{% endif %}
+            {% if book.code_label %}<div class="muted">{{ book.code_label }}</div>{% endif %}
+          </td>
+          <td>{{ book.kind_label }}</td>
+          <td class="wrap-text">{% if book.courses %}{{ book.courses|map(attribute='title')|join(', ') }}{% else %}Not assigned{% endif %}</td>
+          <td><a href="/books/{{ book.id }}">Edit</a></td>
+          <td>
+            <form method="post" action="/books/{{ book.id }}/delete" class="inline-form" onsubmit="return confirm('Remove this book from the school? Assignments stay.');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="next" value="/books">
+              <button type="submit" class="linkish">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <section class="card-grid">
+    {% for book in books %}
+    <article class="item-card">
+      <h2 class="wrap-text">{{ book.title }}</h2>
+      <p><span class="pill">{{ book.kind_label }}</span></p>
+      {% if book.author %}<p class="muted wrap-text">{{ book.author }}</p>{% endif %}
+      {% if book.code_label %}<p class="muted">{{ book.code_label }}</p>{% endif %}
+      <p class="muted wrap-text">{% if book.courses %}{{ book.courses|map(attribute='title')|join(', ') }}{% else %}Not assigned to a class yet{% endif %}</p>
+      <p><a class="btn btn--small" href="/books/{{ book.id }}">Edit</a></p>
+      <form method="post" action="/books/{{ book.id }}/delete" class="danger-zone" onsubmit="return confirm('Remove this book from the school? Assignments stay.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="next" value="/books">
+        <button type="submit" class="btn btn--ghost">Remove</button>
+      </form>
+    </article>
+    {% endfor %}
+  </section>
+  {% endif %}
+{% else %}
+<p class="muted">No school books yet. Add the first one below.</p>
+{% endif %}
+
+<section class="panel">
+  <h2>Add a book</h2>
+  {% set next_path = "/books" %}
+  {% set form_action = "/books" %}
+  {% set show_assign = true %}
+  {% include "partials/_book_form.html" %}
+</section>
+{% endblock %}

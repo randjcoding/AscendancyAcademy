@@ -10,9 +10,10 @@ from fastapi.staticfiles import StaticFiles
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.config import BASE_DIR, settings
-from app.routers import attendance, auth, calendar, courses, documents, grades, home, print_views, settings as settings_router
+from app.routers import attendance, auth, books, calendar, courses, documents, grades, home, print_views, settings as settings_router
 from app.routers import tasks, theme, usage
 from app.seed import seed
+from app.services.documents import ensure_library_layout
 from app.services.schema import ensure_schema
 
 
@@ -20,6 +21,7 @@ from app.services.schema import ensure_schema
 async def lifespan(app: FastAPI):
     settings.storage_path.mkdir(parents=True, exist_ok=True)
     ensure_schema()
+    ensure_library_layout()
     seed()
     yield
 
@@ -68,6 +70,7 @@ def create_app() -> FastAPI:
     app.include_router(home.router)
     app.include_router(courses.router)
     app.include_router(courses.lookup_router)
+    app.include_router(books.router)
     app.include_router(grades.router)
     app.include_router(attendance.router)
     app.include_router(calendar.router)

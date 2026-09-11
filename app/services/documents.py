@@ -10,6 +10,9 @@ from urllib.parse import quote
 from app.config import BASE_DIR
 
 ROOT_NAME = "Documents"
+IMPORTANT_FOLDER = "Home School Important Documents"
+PHOTOS_FOLDER = "Teacher photos"
+OLD_NOI_FOLDER = "NOI Approval"
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 SKIP_NAMES = frozenset({".gitkeep", "Thumbs.db", ".DS_Store"})
 
@@ -69,6 +72,44 @@ def library_root() -> Path:
     root = (BASE_DIR / ROOT_NAME).resolve()
     root.mkdir(parents=True, exist_ok=True)
     return root
+
+
+def ensure_library_layout() -> None:
+    root = library_root()
+    important = root / IMPORTANT_FOLDER
+    important.mkdir(exist_ok=True)
+    (root / PHOTOS_FOLDER).mkdir(exist_ok=True)
+    old_noi = root / OLD_NOI_FOLDER
+    new_noi = important / OLD_NOI_FOLDER
+    if old_noi.is_dir() and not new_noi.exists():
+        shutil.move(str(old_noi), str(new_noi))
+    elif old_noi.is_dir() and new_noi.exists():
+        for child in old_noi.iterdir():
+            dest = new_noi / child.name
+            if not dest.exists():
+                shutil.move(str(child), str(dest))
+        shutil.rmtree(old_noi, ignore_errors=True)
+
+
+def all_folders() -> list[dict]:
+    ensure_library_layout()
+    root = library_root()
+    rows = [{"rel": "", "label": "Documents", "depth": 0}]
+    for path in sorted(root.rglob("*"), key=lambda p: str(p).lower()):
+        if not path.is_dir():
+            continue
+        if any(part.startswith(".") or part in SKIP_NAMES for part in path.relative_to(root).parts):
+            continue
+        rel = normalize_rel(str(path.relative_to(root)).replace("\\", "/"))
+        parts = rel.split("/") if rel else []
+        rows.append(
+            {
+                "rel": rel,
+                "label": " / ".join(display_label(p) for p in parts),
+                "depth": len(parts),
+            }
+        )
+    return rows
 
 
 def normalize_rel(rel: str | None) -> str:
@@ -167,6 +208,7 @@ def _safe_name(name: str) -> str:
 
 
 def list_dir(rel: str | None = "") -> dict:
+    ensure_library_layout()
     norm = normalize_rel(rel)
     target = resolve_rel(norm)
     if not target.exists():
@@ -225,7 +267,8 @@ def list_dir(rel: str | None = "") -> dict:
     parent = "/".join(parts[:-1]) if parts else ""
     return {
         "rel": norm,
-        "title": display_label(parts[-1]) if parts else "Important papers",
+        "title": display_label(parts[-1]) if parts else "Documents",
+        "destinations": all_folders(),
         "folders": folders,
         "files": files,
         "crumbs": crumbs,

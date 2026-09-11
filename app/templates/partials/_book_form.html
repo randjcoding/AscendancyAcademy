@@ -35,6 +35,20 @@
     <input class="input" name="isbn" data-book-isbn value="{{ book.isbn if book else '' }}">
   </label>
   <input type="hidden" name="upc" data-book-upc value="{{ book.upc if book else '' }}">
+  {% if show_assign and courses %}
+  <input type="hidden" name="assign_classes" value="1">
+  <fieldset class="span-2">
+    <legend class="field__label">Assign to classes</legend>
+    <div class="check-grid">
+      {% for course in courses %}
+      <label class="field check-field">
+        <input type="checkbox" name="course_ids" value="{{ course.id }}" {% if linked_ids is defined and course.id in linked_ids %}checked{% endif %}>
+        <span class="wrap-text">{{ course.title }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  {% endif %}
   <div class="span-2">
     <button type="submit" class="btn btn--primary">{% if book %}Save changes{% else %}Save book{% endif %}</button>
   </div>

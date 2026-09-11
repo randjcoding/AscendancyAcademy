@@ -18,7 +18,8 @@ from app.dependencies import (
     session_token,
     student_profile,
 )
-from app.models import Assignment, Book, Course, Enrollment, Grade, TeacherApiKey, User, UserKind
+from app.models import Assignment, Book, Course, CourseBook, Enrollment, Grade, TeacherApiKey, User, UserKind
+from app.services import catalog as catalog_svc
 from app.security import verify_csrf
 from app.services import ai_costs, ai_usage as usage_svc
 from app.services import attendance as attendance_svc
@@ -69,7 +70,7 @@ def teacher_home(
             )
             .options(
                 joinedload(Enrollment.course).joinedload(Course.assignments),
-                joinedload(Enrollment.course).joinedload(Course.books),
+                joinedload(Enrollment.course).joinedload(Course.book_links).joinedload(CourseBook.book),
                 joinedload(Enrollment.course).joinedload(Course.categories),
                 joinedload(Enrollment.grades),
             )
@@ -110,6 +111,7 @@ def teacher_home(
         totals=totals,
         waiting=waiting[:8],
         courses=courses,
+        catalog_books=catalog_svc.all_books(db),
         upcoming=upcoming,
         api_keys=keys,
         gemma_available=gemma.available,
@@ -140,7 +142,7 @@ def teacher_quick_assign(
     if not course:
         return RedirectResponse("/teacher?error=Pick+a+class.", status_code=303)
     book = db.get(Book, book_id) if book_id else None
-    if book and book.course_id != course.id:
+    if book and not catalog_svc.linked(book, course.id):
         return RedirectResponse("/teacher?error=That+book+is+not+in+this+class.", status_code=303)
     if not book and not pages.strip() and not bulk_pages.strip():
         return RedirectResponse("/teacher?error=Add+a+book+and+pages+first.", status_code=303)

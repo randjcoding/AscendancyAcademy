@@ -3,15 +3,46 @@
 {% block content %}
 <header class="page-head">
   <div>
-    <p class="eyebrow"><a href="/courses/{{ course.id }}">{{ course.title }}</a> · <a href="/teacher">Desk</a></p>
-    <h1>Edit book</h1>
-    <p class="muted">Change the name, kind, or ISBN. Assignments already added stay.</p>
+    <p class="eyebrow"><a href="/books">Books</a> · <a href="/courses">Classes</a></p>
+    <h1 class="wrap-text">Edit book</h1>
+    <p class="muted">Change the name, kind, or ISBN. Assign it to any class. Assignments already added stay.</p>
   </div>
 </header>
 {% if error %}<div class="status status--error">{{ error }}</div>{% endif %}
 <section class="panel">
-  {% set next_path = "/courses/" ~ course.id %}
-  {% set form_action = "/courses/" ~ course.id ~ "/books/" ~ book.id %}
+  {% set next_path = "/books" %}
+  {% set form_action = "/books/" ~ book.id %}
   {% include "partials/_book_form.html" %}
 </section>
+<section class="panel">
+  <h2>Assign to classes</h2>
+  <form method="post" action="/books/{{ book.id }}" class="form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="next" value="/books">
+    <input type="hidden" name="title" value="{{ book.title }}">
+    <input type="hidden" name="author" value="{{ book.author }}">
+    <input type="hidden" name="kind" value="{{ book.kind }}">
+    <input type="hidden" name="isbn" value="{{ book.isbn }}">
+    <input type="hidden" name="upc" value="{{ book.upc }}">
+    <input type="hidden" name="assign_classes" value="1">
+    {% if courses %}
+    <div class="check-grid">
+      {% for course in courses %}
+      <label class="field check-field">
+        <input type="checkbox" name="course_ids" value="{{ course.id }}" {% if course.id in linked_ids %}checked{% endif %}>
+        <span class="wrap-text">{{ course.title }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">Add a class first, then come back to assign this book.</p>
+    {% endif %}
+    <p><button type="submit" class="btn btn--primary">Save classes</button></p>
+  </form>
+</section>
+<form method="post" action="/books/{{ book.id }}/delete" class="danger-zone" onsubmit="return confirm('Remove this book from the school? Assignments stay.');">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="next" value="/books">
+  <button type="submit" class="btn btn--ghost">Remove book</button>
+</form>
 {% endblock %}

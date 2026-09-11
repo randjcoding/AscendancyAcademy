@@ -29,13 +29,14 @@ DEFAULT_CATEGORIES = (
 )
 
 COURSE_COLORS = (
-    "#2D6A4F",
-    "#1D3557",
-    "#9B2226",
-    "#7B2D8E",
-    "#B45309",
-    "#0F766E",
+    ("#2D6A4F", "Forest"),
+    ("#1D3557", "Navy"),
+    ("#9B2226", "Crimson"),
+    ("#7B2D8E", "Purple"),
+    ("#B45309", "Amber"),
+    ("#0F766E", "Teal"),
 )
+COURSE_COLOR_VALUES = tuple(hex_value for hex_value, _name in COURSE_COLORS)
 
 OLD_TEACHER2_EMAILS = (
     "teacher@ascendancy.local",

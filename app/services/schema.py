@@ -11,6 +11,65 @@ def _add_if_missing(table: str, cols: set[str], name: str, ddl: str, adds: list[
         adds.append(f"ALTER TABLE {table} ADD COLUMN {ddl}")
 
 
+def _migrate_book_catalog(insp, dialect: str) -> None:
+    tables = set(insp.get_table_names())
+    if "books" not in tables or "course_books" not in tables:
+        return
+    book_cols = {c["name"] for c in insp.get_columns("books")}
+    if "course_id" not in book_cols:
+        return
+    with engine.begin() as conn:
+        if dialect == "postgresql":
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO course_books (course_id, book_id, sort_order)
+                    SELECT course_id, id, COALESCE(sort_order, 0)
+                    FROM books
+                    WHERE course_id IS NOT NULL
+                    ON CONFLICT (course_id, book_id) DO NOTHING
+                    """
+                )
+            )
+            conn.execute(text("ALTER TABLE books DROP COLUMN IF EXISTS course_id"))
+            if "sort_order" in book_cols:
+                conn.execute(text("ALTER TABLE books DROP COLUMN IF EXISTS sort_order"))
+        else:
+            conn.execute(
+                text(
+                    """
+                    INSERT OR IGNORE INTO course_books (course_id, book_id, sort_order)
+                    SELECT course_id, id, COALESCE(sort_order, 0)
+                    FROM books
+                    WHERE course_id IS NOT NULL
+                    """
+                )
+            )
+            cols = [c["name"] for c in insp.get_columns("books") if c["name"] not in {"course_id", "sort_order"}]
+            col_sql = ", ".join(cols)
+            conn.execute(text("PRAGMA foreign_keys=OFF"))
+            conn.execute(
+                text(
+                    f"""
+                    CREATE TABLE books__new (
+                        id INTEGER PRIMARY KEY,
+                        title VARCHAR(200) NOT NULL,
+                        author VARCHAR(160) DEFAULT '',
+                        notes TEXT DEFAULT '',
+                        kind VARCHAR(20) DEFAULT 'other',
+                        isbn VARCHAR(32) DEFAULT '',
+                        upc VARCHAR(32) DEFAULT '',
+                        created_at DATETIME
+                    )
+                    """
+                )
+            )
+            conn.execute(text(f"INSERT INTO books__new ({col_sql}) SELECT {col_sql} FROM books"))
+            conn.execute(text("DROP TABLE books"))
+            conn.execute(text("ALTER TABLE books__new RENAME TO books"))
+            conn.execute(text("PRAGMA foreign_keys=ON"))
+
+
 def ensure_schema() -> None:
     Base.metadata.create_all(bind=engine)
     insp = inspect(engine)
@@ -18,6 +77,7 @@ def ensure_schema() -> None:
     adds: list[str] = []
     dialect = engine.dialect.name
     bool_true = "TRUE" if dialect == "postgresql" else "1"
+    bool_false = "FALSE" if dialect == "postgresql" else "0"
 
     if "assignments" in tables:
         cols = {c["name"] for c in insp.get_columns("assignments")}
@@ -47,9 +107,30 @@ def ensure_schema() -> None:
             ddl="density_preference VARCHAR(20) DEFAULT 'cozy'",
             adds=adds,
         )
+        _add_if_missing(
+            cols=cols,
+            table="users",
+            name="list_view_preference",
+            ddl="list_view_preference VARCHAR(20) DEFAULT 'cards'",
+            adds=adds,
+        )
 
-    if not adds:
-        return
-    with engine.begin() as conn:
-        for stmt in adds:
-            conn.execute(text(stmt))
+    if "attendance_days" in tables:
+        cols = {c["name"] for c in insp.get_columns("attendance_days")}
+        _add_if_missing(
+            cols=cols,
+            table="attendance_days",
+            name="locked",
+            ddl=f"locked BOOLEAN DEFAULT {bool_false}",
+            adds=adds,
+        )
+        if dialect == "postgresql":
+            adds.append("ALTER TYPE attendance_status ADD VALUE IF NOT EXISTS 'sick'")
+
+    if adds:
+        with engine.begin() as conn:
+            for stmt in adds:
+                conn.execute(text(stmt))
+
+    insp = inspect(engine)
+    _migrate_book_catalog(insp, dialect)

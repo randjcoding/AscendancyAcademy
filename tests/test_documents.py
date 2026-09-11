@@ -11,13 +11,13 @@ from app.services.documents import DocumentsError, list_dir, normalize_rel, reso
 def test_normalize_blocks_parent():
     with pytest.raises(DocumentsError):
         normalize_rel("../secret")
-    assert normalize_rel("NOI Approval/file.pdf") == "NOI Approval/file.pdf"
+    assert normalize_rel("Home School Important Documents/NOI Approval/file.pdf") == "Home School Important Documents/NOI Approval/file.pdf"
 
 
 def test_resolve_stays_in_library():
     root = resolve_rel("")
     assert root.name == "Documents"
-    target = resolve_rel("NOI Approval")
+    target = resolve_rel("Home School Important Documents/NOI Approval")
     assert target.is_dir()
     with pytest.raises(DocumentsError):
         resolve_rel("..")
@@ -36,10 +36,13 @@ def test_viewer_kinds():
 def test_seed_folder_is_listed():
     listing = list_dir("")
     names = [f["name"] for f in listing["folders"]]
-    assert "NOI Approval" in names
-    inner = list_dir("NOI Approval")
-    assert inner["file_count"] >= 3
-    assert any(f["kind"] == "pdf" for f in inner["files"])
+    assert "Home School Important Documents" in names
+    assert "Teacher photos" in names
+    inner = list_dir("Home School Important Documents")
+    assert "NOI Approval" in [f["name"] for f in inner["folders"]]
+    noi = list_dir("Home School Important Documents/NOI Approval")
+    assert noi["file_count"] >= 3
+    assert any(f["kind"] == "pdf" for f in noi["files"])
 
 
 def test_documents_need_teacher():

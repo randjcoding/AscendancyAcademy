@@ -93,16 +93,35 @@ def set_day(
     if not student or not school_year:
         return RedirectResponse("/attendance", status_code=303)
     record = attendance_svc.day_record(db, student.id, day)
+    dest = next if next.startswith("/") else "/attendance"
+    if status == "unlock":
+        if record:
+            record.locked = False
+            db.add(record)
+            db.commit()
+        return RedirectResponse(dest, status_code=303)
+    if status == "lock":
+        if record:
+            record.locked = True
+            db.add(record)
+            db.commit()
+        return RedirectResponse(dest, status_code=303)
+    if record and record.locked:
+        return RedirectResponse(dest, status_code=303)
     if status == "clear":
         if record:
             db.delete(record)
             db.commit()
-        dest = next if next.startswith("/") else "/attendance"
         return RedirectResponse(dest, status_code=303)
     if status in {s.value for s in AttendanceStatus}:
         chosen = AttendanceStatus(status)
     else:
-        chosen = attendance_svc.next_status(attendance_svc.implied_status(day, record))
+        chosen = attendance_svc.next_status(record.status if record else None)
+        if chosen is None:
+            if record:
+                db.delete(record)
+                db.commit()
+            return RedirectResponse(dest, status_code=303)
     if record:
         record.status = chosen
         record.entered_by_user_id = user.id
@@ -117,7 +136,6 @@ def set_day(
             )
         )
     db.commit()
-    dest = next if next.startswith("/") else "/attendance"
     return RedirectResponse(dest, status_code=303)
 
 
@@ -136,11 +154,19 @@ def mark_today(
     student = db.get(Student, student_id)
     school_year = attendance_svc.current_year(db)
     today = date.today()
-    chosen = AttendanceStatus.PRESENT
-    if status in {s.value for s in AttendanceStatus}:
-        chosen = AttendanceStatus(status)
+    dest = next if next.startswith("/") else "/teacher"
     if student and school_year:
         record = attendance_svc.day_record(db, student.id, today)
+        if record and record.locked and status not in {"unlock", "lock", "clear"}:
+            return RedirectResponse(dest, status_code=303)
+        if status == "clear":
+            if record and not record.locked:
+                db.delete(record)
+                db.commit()
+            return RedirectResponse(dest, status_code=303)
+        chosen = AttendanceStatus.PRESENT
+        if status in {s.value for s in AttendanceStatus}:
+            chosen = AttendanceStatus(status)
         if record:
             record.status = chosen
             record.entered_by_user_id = user.id
@@ -155,7 +181,6 @@ def mark_today(
                 )
             )
         db.commit()
-    dest = next if next.startswith("/") else "/teacher"
     return RedirectResponse(dest, status_code=303)
 
 

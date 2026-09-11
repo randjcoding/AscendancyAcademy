@@ -16,11 +16,13 @@ from app.models import (
     Book,
     CalendarEvent,
     Course,
+    CourseBook,
     Enrollment,
     Grade,
     GradeCategory,
     User,
 )
+from app.services import catalog as catalog_svc
 from app.security import verify_csrf
 from app.services import grades as grades_svc
 from app.services import pages as pages_svc
@@ -55,7 +57,7 @@ def gradebook(
                     joinedload(Enrollment.grades),
                     joinedload(Enrollment.course).joinedload(Course.assignments),
                     joinedload(Enrollment.course).joinedload(Course.categories),
-                    joinedload(Enrollment.course).joinedload(Course.books),
+                    joinedload(Enrollment.course).joinedload(Course.book_links).joinedload(CourseBook.book),
                     joinedload(Enrollment.course).joinedload(Course.school_year),
                 )
             )
@@ -85,6 +87,7 @@ def gradebook(
         grade_map=grade_map,
         categories=course.categories,
         books=course.books,
+        catalog_books=catalog_svc.all_books(db),
         error=request.query_params.get("error", ""),
         ok=request.query_params.get("ok", ""),
     )
@@ -121,7 +124,7 @@ def create_assignment(
         except ValueError:
             return RedirectResponse(f"{dest}?error=That+due+date+is+not+valid.", status_code=303)
     book = db.get(Book, book_id) if book_id else None
-    if book and book.course_id != course.id:
+    if book and not catalog_svc.linked(book, course.id):
         book = None
     default_work = bool(has_work)
     specs = pages_svc.parse_bulk(bulk_pages, default_has_work=default_work)

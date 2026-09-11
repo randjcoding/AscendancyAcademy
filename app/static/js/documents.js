@@ -157,11 +157,11 @@
     };
   }
 
-  if (filter && list) {
+  if (filter) {
     filter.addEventListener("input", function () {
       const q = filter.value.trim().toLowerCase();
       let shown = 0;
-      list.querySelectorAll(".docs-row").forEach(function (row) {
+      document.querySelectorAll("[data-docs-filterable]").forEach(function (row) {
         const hay = (row.getAttribute("data-filter") || "").toLowerCase();
         const match = !q || hay.indexOf(q) !== -1;
         row.hidden = !match;

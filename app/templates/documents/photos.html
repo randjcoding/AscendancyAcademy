@@ -1,0 +1,43 @@
+{% extends "app_base.html" %}
+{% block title %}Add photos — {{ site_name }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Teachers only</p>
+    <h1>Add photos</h1>
+    <p class="muted">Pick as many pictures as you want. They go into Documents → Teacher photos.</p>
+  </div>
+  <div class="page-head__actions">
+    <a class="btn" href="/documents?path=Teacher%20photos">Open folder</a>
+  </div>
+</header>
+
+{% if error %}<div class="status status--error">{{ error }}</div>{% endif %}
+{% if ok %}<div class="status status--ok">{{ ok }}</div>{% endif %}
+
+<section class="panel photo-upload">
+  <form method="post" action="/photos" class="form" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="field">
+      <span class="field__label">Pictures</span>
+      <input class="input input--xl" type="file" name="files" accept="image/*" multiple required>
+    </label>
+    <button type="submit" class="btn btn--primary btn--xl">Save photos</button>
+  </form>
+</section>
+
+{% if listing.files %}
+<section class="panel">
+  <h2>Already in Teacher photos</h2>
+  <div class="card-grid">
+    {% for file in listing.files %}
+    <article class="item-card">
+      <p class="wrap-text"><strong>{{ file.label }}</strong></p>
+      <p class="muted">{{ file.size_label }}</p>
+      <p><a class="btn btn--small" href="{{ file.view_href }}">Open</a></p>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

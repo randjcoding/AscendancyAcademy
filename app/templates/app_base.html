@@ -12,9 +12,10 @@
     <a href="/teacher" class="{% if request.url.path == '/teacher' %}is-current{% endif %}">Desk</a>
     <a href="/attendance" class="{% if request.url.path.startswith('/attendance') %}is-current{% endif %}">Attendance</a>
     <a href="/courses" class="{% if request.url.path.startswith('/courses') %}is-current{% endif %}">Classes</a>
+    <a href="/books" class="{% if request.url.path.startswith('/books') %}is-current{% endif %}">Books</a>
     <a href="/calendar" class="{% if request.url.path.startswith('/calendar') %}is-current{% endif %}">Calendar</a>
     <a href="/tasks" class="{% if request.url.path.startswith('/tasks') %}is-current{% endif %}">To-do</a>
-    <a href="/documents" class="{% if request.url.path.startswith('/documents') %}is-current{% endif %}">Papers</a>
+    <a href="/documents" class="{% if request.url.path.startswith('/documents') or request.url.path.startswith('/photos') %}is-current{% endif %}">Documents</a>
     <a href="/usage" class="{% if request.url.path.startswith('/usage') %}is-current{% endif %}">Usage</a>
     {% elif current_user and current_user.is_student %}
     <a href="/student" class="{% if request.url.path == '/student' %}is-current{% endif %}">Home</a>
@@ -24,8 +25,16 @@
     <a href="/tasks" class="{% if request.url.path.startswith('/tasks') %}is-current{% endif %}">To-do</a>
     {% endif %}
   </nav>
+  <div class="topbar__actions">
+    {% if current_user %}
+    <a href="/settings" class="btn btn--ghost">{{ current_user.first_name }}</a>
+    <form method="post" action="/logout" class="inline-form">
+      <button type="submit" class="btn btn--ghost">Sign out</button>
+    </form>
+    {% endif %}
+  </div>
   <details class="look-menu" id="lookMenu">
-    <summary class="btn btn--ghost">Look</summary>
+    <summary class="btn btn--ghost">Themes</summary>
     <div class="look-menu__panel">
       <p class="look-menu__label">Colors</p>
       <div class="look-menu__row">
@@ -51,14 +60,6 @@
       </div>
     </div>
   </details>
-  <div class="topbar__actions">
-    {% if current_user %}
-    <a href="/settings" class="btn btn--ghost">{{ current_user.first_name }}</a>
-    <form method="post" action="/logout" class="inline-form">
-      <button type="submit" class="btn btn--ghost">Sign out</button>
-    </form>
-    {% endif %}
-  </div>
 </header>
 <main class="main">
   {% if school_year %}

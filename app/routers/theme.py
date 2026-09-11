@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.dependencies import THEMES, DENSITIES, get_current_user
+from app.dependencies import THEMES, DENSITIES, LIST_VIEWS, get_current_user
 from app.models import User
 
 router = APIRouter()
@@ -52,4 +52,25 @@ def set_look(
     resp = RedirectResponse(dest, status_code=303)
     _save_cookie(resp, request, "aa_theme", chosen_theme)
     _save_cookie(resp, request, "aa_density", chosen_density)
+    return resp
+
+
+@router.post("/view")
+def set_list_view(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user),
+    view: str = Form("cards"),
+    next: str = Form("/"),
+):
+    chosen = view.strip().lower()
+    if chosen not in LIST_VIEWS:
+        chosen = "cards"
+    if user:
+        user.list_view_preference = chosen
+        db.add(user)
+        db.commit()
+    dest = next if next.startswith("/") else "/"
+    resp = RedirectResponse(dest, status_code=303)
+    _save_cookie(resp, request, "aa_view", chosen)
     return resp

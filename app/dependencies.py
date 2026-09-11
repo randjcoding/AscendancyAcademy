@@ -16,6 +16,8 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 
 THEMES = ["ascendancy", "giants", "academy", "light", "dark", "contrast", "forest", "parchment"]
 DENSITIES = ["comfortable", "cozy", "compact"]
+LIST_VIEWS = ["cards", "table"]
+LIST_VIEW_LABELS = {"cards": "Cards", "table": "Table"}
 THEME_LABELS = {
     "ascendancy": "Ascendancy",
     "giants": "Giants",
@@ -104,6 +106,15 @@ def density_for(request: Request, user: User | None) -> str:
     return "cozy"
 
 
+def list_view_for(request: Request, user: User | None) -> str:
+    cookie = (request.cookies.get("aa_view") or "").strip()
+    if user and getattr(user, "list_view_preference", None) in LIST_VIEWS:
+        return user.list_view_preference
+    if cookie in LIST_VIEWS:
+        return cookie
+    return "cards"
+
+
 def base_context(request: Request, user: User | None, **extra) -> dict:
     from app.models import BOOK_KIND_LABELS, BookKind
     from app.services.turnstile import turnstile_required
@@ -123,6 +134,9 @@ def base_context(request: Request, user: User | None, **extra) -> dict:
         "csrf_token": csrf_token_for(token) if token else "",
         "theme": theme_for(request, user),
         "density": density_for(request, user),
+        "list_view": list_view_for(request, user),
+        "list_views": LIST_VIEWS,
+        "list_view_labels": LIST_VIEW_LABELS,
         "themes": THEMES,
         "theme_labels": THEME_LABELS,
         "densities": DENSITIES,

@@ -42,18 +42,50 @@
   {% if error %}<div class="status status--error">{{ error }}</div>{% endif %}
   {% if ok %}<div class="status status--ok">{{ ok }}</div>{% endif %}
   {% if keys %}
-  <ul class="plain-list">
+  <div class="panel__head">
+    <p class="muted">{{ keys|length }} key{% if keys|length != 1 %}s{% endif %}</p>
+    {% include "partials/_view_toggle.html" %}
+  </div>
+  {% if list_view == "table" %}
+  <div class="table-wrap">
+    <table class="sheet">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Kind</th>
+          <th>Remove</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for key in keys %}
+        <tr>
+          <td class="wrap-text"><strong>{{ key.name }}</strong></td>
+          <td>{{ key.provider }}</td>
+          <td>
+            <form method="post" action="/settings/keys/{{ key.id }}/delete" class="inline-form" onsubmit="return confirm('Remove this key?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="linkish">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-grid">
     {% for key in keys %}
-    <li>
-      <strong>{{ key.name }}</strong>
-      <span class="muted">{{ key.provider }}</span>
-      <form method="post" action="/settings/keys/{{ key.id }}/delete" class="inline-form" onsubmit="return confirm('Remove this key?');">
+    <article class="item-card">
+      <h3 class="wrap-text">{{ key.name }}</h3>
+      <p class="muted">{{ key.provider }}</p>
+      <form method="post" action="/settings/keys/{{ key.id }}/delete" class="danger-zone" onsubmit="return confirm('Remove this key?');">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="linkish">Remove</button>
+        <button type="submit" class="btn btn--ghost">Remove</button>
       </form>
-    </li>
+    </article>
     {% endfor %}
-  </ul>
+  </div>
+  {% endif %}
   {% else %}
   <p class="muted">No keys yet.</p>
   {% endif %}
