@@ -37,7 +37,9 @@
     {% for book in books %}
     <li>
       <strong>{{ book.title }}</strong>
+      <span class="pill">{{ book.kind_label }}</span>
       {% if book.author %}<span class="muted">{{ book.author }}</span>{% endif %}
+      {% if book.code_label %}<span class="muted">{{ book.code_label }}</span>{% endif %}
       <form method="post" action="/courses/{{ course.id }}/books/{{ book.id }}/delete" class="inline-form" onsubmit="return confirm('Remove this book? Assignments stay.');">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button type="submit" class="linkish">Remove</button>
@@ -46,22 +48,10 @@
     {% endfor %}
   </ul>
   {% else %}
-  <p class="muted">Add the textbooks Gregory uses in this class. Then assigning pages is just a page number.</p>
+  <p class="muted">Scan the barcode, type the ISBN, or just the name. Then assigning pages is a page number.</p>
   {% endif %}
-  <form method="post" action="/courses/{{ course.id }}/books" class="form form--grid">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label class="field">
-      <span class="field__label">Book title</span>
-      <input class="input" name="title" required placeholder="Saxon 5/4, Story of the World…">
-    </label>
-    <label class="field">
-      <span class="field__label">Author</span>
-      <input class="input" name="author" placeholder="Optional">
-    </label>
-    <div class="span-2">
-      <button type="submit" class="btn btn--primary">Add book</button>
-    </div>
-  </form>
+  {% set next_path = "/courses/" ~ course.id %}
+  {% include "partials/_book_add.html" %}
 </section>
 
 <section class="panel">
@@ -74,7 +64,7 @@
       <select class="input" name="book_id">
         <option value="0">No book / other work</option>
         {% for book in books %}
-        <option value="{{ book.id }}">{{ book.title }}</option>
+        <option value="{{ book.id }}">{{ book.title }} ({{ book.kind_label }})</option>
         {% endfor %}
       </select>
     </label>

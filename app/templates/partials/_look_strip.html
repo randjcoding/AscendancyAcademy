@@ -1,0 +1,24 @@
+<div class="gate-look">
+  <p class="look-menu__label">Colors</p>
+  <div class="look-menu__row">
+    {% for item in themes %}
+    <form method="post" action="/theme" class="inline-form look-form">
+      <input type="hidden" name="theme" value="{{ item }}">
+      <input type="hidden" name="density" value="{{ density }}">
+      <input type="hidden" name="next" value="{{ request.url.path }}">
+      <button type="submit" class="look-swatch {% if theme == item %}is-on{% endif %}" data-theme-preview="{{ item }}">{{ theme_labels[item] }}</button>
+    </form>
+    {% endfor %}
+  </div>
+  <p class="look-menu__label">Size</p>
+  <div class="look-menu__row">
+    {% for item in densities %}
+    <form method="post" action="/theme" class="inline-form look-form">
+      <input type="hidden" name="theme" value="{{ theme }}">
+      <input type="hidden" name="density" value="{{ item }}">
+      <input type="hidden" name="next" value="{{ request.url.path }}">
+      <button type="submit" class="btn btn--small {% if density == item %}btn--primary{% endif %}" data-density-pick="{{ item }}">{{ density_labels[item] }}</button>
+    </form>
+    {% endfor %}
+  </div>
+</div>

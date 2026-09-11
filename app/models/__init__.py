@@ -48,6 +48,23 @@ class AssignmentStatus(str, enum.Enum):
     SCORED = "scored"
 
 
+class BookKind(str, enum.Enum):
+    WORKBOOK = "workbook"
+    CURRICULUM = "curriculum"
+    NOVEL = "novel"
+    TEXTBOOK = "textbook"
+    OTHER = "other"
+
+
+BOOK_KIND_LABELS = {
+    BookKind.WORKBOOK: "Workbook",
+    BookKind.CURRICULUM: "Curriculum",
+    BookKind.NOVEL: "Novel",
+    BookKind.TEXTBOOK: "Textbook",
+    BookKind.OTHER: "Other",
+}
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -62,6 +79,7 @@ class User(Base):
         _enum(AccountStatus, "account_status"), default=AccountStatus.ACTIVE, index=True
     )
     theme_preference: Mapped[str] = mapped_column(String(20), default="academy")
+    density_preference: Mapped[str] = mapped_column(String(20), default="cozy")
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
     failed_login_count: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -221,11 +239,25 @@ class Book(Base):
     title: Mapped[str] = mapped_column(String(200))
     author: Mapped[str] = mapped_column(String(160), default="")
     notes: Mapped[str] = mapped_column(Text, default="")
+    kind: Mapped[str] = mapped_column(String(20), default=BookKind.OTHER.value)
+    isbn: Mapped[str] = mapped_column(String(32), default="")
+    upc: Mapped[str] = mapped_column(String(32), default="")
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     course: Mapped["Course"] = relationship(back_populates="books")
     assignments: Mapped[list["Assignment"]] = relationship(back_populates="book")
+
+    @property
+    def kind_label(self) -> str:
+        try:
+            return BOOK_KIND_LABELS.get(BookKind(self.kind), "Book")
+        except ValueError:
+            return "Book"
+
+    @property
+    def code_label(self) -> str:
+        return (self.isbn or self.upc or "").strip()
 
 
 class CourseTeacher(Base):

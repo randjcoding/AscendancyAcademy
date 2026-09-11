@@ -9,13 +9,27 @@
 </header>
 
 <section class="panel">
-  <h2>Colors</h2>
+  <h2>How the site looks</h2>
+  <p class="muted">Pick colors and how tight the page feels. This follows you on phone and computer.</p>
+  <p class="field__label">Colors</p>
   <div class="theme-picks">
     {% for item in themes %}
-    <form method="post" action="/theme">
+    <form method="post" action="/theme" class="look-form">
       <input type="hidden" name="theme" value="{{ item }}">
+      <input type="hidden" name="density" value="{{ density }}">
       <input type="hidden" name="next" value="/settings">
-      <button type="submit" class="theme-pick {% if theme == item %}is-on{% endif %}" data-theme-preview="{{ item }}">{{ item|title }}</button>
+      <button type="submit" class="theme-pick {% if theme == item %}is-on{% endif %}" data-theme-preview="{{ item }}">{{ theme_labels[item] }}</button>
+    </form>
+    {% endfor %}
+  </div>
+  <p class="field__label">Size</p>
+  <div class="theme-picks">
+    {% for item in densities %}
+    <form method="post" action="/theme" class="look-form">
+      <input type="hidden" name="theme" value="{{ theme }}">
+      <input type="hidden" name="density" value="{{ item }}">
+      <input type="hidden" name="next" value="/settings">
+      <button type="submit" class="btn {% if density == item %}btn--primary{% endif %}" data-density-pick="{{ item }}">{{ density_labels[item] }}</button>
     </form>
     {% endfor %}
   </div>

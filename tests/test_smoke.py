@@ -15,6 +15,22 @@ def test_docs_are_off():
         assert client.get("/openapi.json").status_code in {401, 404}
 
 
+def test_look_cookie_and_density():
+    with TestClient(app) as client:
+        resp = client.post(
+            "/theme",
+            data={"theme": "forest", "density": "compact", "next": "/"},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+        assert resp.cookies.get("aa_theme") == "forest"
+        assert resp.cookies.get("aa_density") == "compact"
+        home = client.get("/")
+        assert 'data-theme="forest"' in home.text
+        assert 'data-density="compact"' in home.text
+        assert "Look" in home.text or "Forest" in home.text
+
+
 def test_login_doors():
     with TestClient(app) as client:
         home = client.get("/", follow_redirects=False)

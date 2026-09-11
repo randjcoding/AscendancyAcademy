@@ -14,6 +14,7 @@
     <a href="/courses" class="{% if request.url.path.startswith('/courses') %}is-current{% endif %}">Classes</a>
     <a href="/calendar" class="{% if request.url.path.startswith('/calendar') %}is-current{% endif %}">Calendar</a>
     <a href="/tasks" class="{% if request.url.path.startswith('/tasks') %}is-current{% endif %}">To-do</a>
+    <a href="/documents" class="{% if request.url.path.startswith('/documents') %}is-current{% endif %}">Papers</a>
     {% elif current_user and current_user.is_student %}
     <a href="/student" class="{% if request.url.path == '/student' %}is-current{% endif %}">Home</a>
     <a href="/grades" class="{% if request.url.path.startswith('/grades') %}is-current{% endif %}">Grades</a>
@@ -22,12 +23,34 @@
     <a href="/tasks" class="{% if request.url.path.startswith('/tasks') %}is-current{% endif %}">To-do</a>
     {% endif %}
   </nav>
+  <details class="look-menu" id="lookMenu">
+    <summary class="btn btn--ghost">Look</summary>
+    <div class="look-menu__panel">
+      <p class="look-menu__label">Colors</p>
+      <div class="look-menu__row">
+        {% for item in themes %}
+        <form method="post" action="/theme" class="inline-form look-form">
+          <input type="hidden" name="theme" value="{{ item }}">
+          <input type="hidden" name="density" value="{{ density }}">
+          <input type="hidden" name="next" value="{{ request.url.path }}">
+          <button type="submit" class="look-swatch {% if theme == item %}is-on{% endif %}" data-theme-preview="{{ item }}">{{ theme_labels[item] }}</button>
+        </form>
+        {% endfor %}
+      </div>
+      <p class="look-menu__label">Size</p>
+      <div class="look-menu__row">
+        {% for item in densities %}
+        <form method="post" action="/theme" class="inline-form look-form">
+          <input type="hidden" name="theme" value="{{ theme }}">
+          <input type="hidden" name="density" value="{{ item }}">
+          <input type="hidden" name="next" value="{{ request.url.path }}">
+          <button type="submit" class="btn btn--small {% if density == item %}btn--primary{% endif %}" data-density-pick="{{ item }}">{{ density_labels[item] }}</button>
+        </form>
+        {% endfor %}
+      </div>
+    </div>
+  </details>
   <div class="topbar__actions">
-    <form method="post" action="/theme" class="inline-form">
-      <input type="hidden" name="theme" value="cycle">
-      <input type="hidden" name="next" value="{{ request.url.path }}">
-      <button type="submit" class="btn btn--ghost" title="Change colors">Theme</button>
-    </form>
     {% if current_user %}
     <a href="/settings" class="btn btn--ghost">{{ current_user.first_name }}</a>
     <form method="post" action="/logout" class="inline-form">

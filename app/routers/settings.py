@@ -11,4 +11,4 @@ router = APIRouter()
 
 @router.get("/settings")
 def settings_page(request: Request, user: User = Depends(require_password_changed)):
-    return render(request, "settings/settings.html", user, themes=["academy", "light", "dark", "contrast"])
+    return render(request, "settings/settings.html", user)

@@ -76,7 +76,7 @@
         <option value="0">No book yet</option>
         {% for course in courses %}
           {% for book in course.books %}
-          <option value="{{ book.id }}" data-course="{{ course.id }}">{{ book.title }}{% if book.author %} — {{ book.author }}{% endif %}</option>
+          <option value="{{ book.id }}" data-course="{{ course.id }}">{{ book.title }}{% if book.kind_label %} ({{ book.kind_label }}){% endif %}{% if book.author %} — {{ book.author }}{% endif %}</option>
           {% endfor %}
         {% endfor %}
       </select>
@@ -126,20 +126,17 @@
         {% for book in course.books %}
         <li>
           <strong>{{ book.title }}</strong>
+          <span class="pill">{{ book.kind_label }}</span>
           {% if book.author %}<span class="muted">{{ book.author }}</span>{% endif %}
+          {% if book.code_label %}<span class="muted">{{ book.code_label }}</span>{% endif %}
         </li>
         {% endfor %}
       </ul>
       {% else %}
       <p class="muted">No books yet.</p>
       {% endif %}
-      <form method="post" action="/courses/{{ course.id }}/books" class="form book-add">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <input type="hidden" name="next" value="/teacher">
-        <input class="input" name="title" required placeholder="Add a book title">
-        <input class="input" name="author" placeholder="Author (optional)">
-        <button type="submit" class="btn btn--small btn--primary">Add book</button>
-      </form>
+      {% set next_path = "/teacher" %}
+      {% include "partials/_book_add.html" %}
     </article>
     {% endfor %}
   </div>
@@ -185,10 +182,11 @@
   <a class="quick-btn" href="/attendance">Full attendance</a>
   <a class="quick-btn" href="/calendar">Calendar</a>
   <a class="quick-btn" href="/tasks">To-do</a>
+  <a class="quick-btn" href="/documents">Papers</a>
   <a class="quick-btn" href="/print/attendance/month?blank=1" target="_blank">Print this month</a>
   <a class="quick-btn" href="/print/attendance/year?blank=1" target="_blank">Print year packet</a>
 </section>
 {% endblock %}
 {% block scripts %}
-<script src="/static/js/desk.js?v=20260911a"></script>
+<script src="/static/js/desk.js?v=20260911c"></script>
 {% endblock %}

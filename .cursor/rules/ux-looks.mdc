@@ -1,0 +1,24 @@
+---
+description: Keep Ascendancy Academy easy, intuitive, and personally styled
+alwaysApply: true
+---
+
+# Easy to use, and no two people look the same
+
+This is a homeschool desk, not a training course. A tired parent or a student should know what to do without a tour.
+
+- Everyday words: “Add pages”, “Mark present”, “Find a book”. No SIS jargon.
+- One obvious next action on each screen. Hide rare danger (delete) at the bottom.
+- Big tap targets on phones. On a wide desk, let people make the whole site smaller.
+- Every new page must honor `data-theme` and `data-density` tokens. Do not hard-code colors, font sizes, or spacing.
+- Always ship more than one look: color themes (academy, light, dark, contrast, forest, parchment) and densities (comfortable, cozy, compact). New chrome belongs in all of them.
+- Prefer lookup and defaults (ISBN/UPC, today’s date, book + pages) over empty forms.
+- If a control looks like it should change the site and does not, that is a bug.
+
+```html
+<!-- ❌ BAD: one frozen look -->
+<section style="background:#fff; font-size:22px; padding:32px">
+
+<!-- ✅ GOOD: tokens so every person can pick a look -->
+<section class="panel">
+```

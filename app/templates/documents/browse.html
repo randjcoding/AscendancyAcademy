@@ -1,0 +1,143 @@
+{% extends "app_base.html" %}
+{% block title %}{{ listing.title }} — Papers — {{ site_name }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Teachers only</p>
+    <h1>{{ listing.title }}</h1>
+    <p class="muted">{{ listing.folder_count }} folder{% if listing.folder_count != 1 %}s{% endif %} · {{ listing.file_count }} file{% if listing.file_count != 1 %}s{% endif %}. Open a file to read it here, or download it.</p>
+  </div>
+</header>
+
+{% if error %}<div class="status status--error">{{ error }}</div>{% endif %}
+{% if ok %}<div class="status status--ok">{{ ok }}</div>{% endif %}
+
+<nav class="docs-crumbs" aria-label="Folder path">
+  {% for crumb in listing.crumbs %}
+    {% if crumb.href %}
+    <a href="{{ crumb.href }}">{{ crumb.label }}</a>
+    {% else %}
+    <span>{{ crumb.label }}</span>
+    {% endif %}
+    {% if not loop.last %}<span class="docs-crumbs__sep" aria-hidden="true">/</span>{% endif %}
+  {% endfor %}
+</nav>
+
+<div class="docs-desk" data-docs-desk {% if preview %}data-open-kind="{{ preview.kind }}" data-open-inline="{{ preview.inline_href }}" data-open-download="{{ preview.download_href }}" data-open-name="{{ preview.label }}"{% endif %}>
+  <section class="panel docs-list-panel">
+    <div class="docs-toolbar">
+      {% if listing.parent_href %}
+      <a class="btn btn--small" href="{{ listing.parent_href }}">Up</a>
+      {% endif %}
+      <label class="field docs-filter-field">
+        <span class="visually-hidden">Find in this folder</span>
+        <input class="input" type="search" data-docs-filter placeholder="Find in this folder" autocomplete="off">
+      </label>
+    </div>
+
+    <ul class="docs-list" data-docs-list>
+      {% for folder in listing.folders %}
+      <li class="docs-row" data-filter="{{ folder.name }} {{ folder.label }}">
+        <a class="docs-item" href="{{ folder.href }}">
+          <span class="docs-badge docs-badge--folder">{{ folder.badge }}</span>
+          <span class="docs-item__text">
+            <strong>{{ folder.label }}</strong>
+            {% if folder.label != folder.name %}<span class="muted">{{ folder.name }}</span>{% endif %}
+          </span>
+        </a>
+        <form method="post" action="/documents/delete" class="inline-form" onsubmit="return confirm('Remove this folder and everything in it?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="path" value="{{ folder.rel }}">
+          <button type="submit" class="linkish">Remove</button>
+        </form>
+      </li>
+      {% endfor %}
+      {% for file in listing.files %}
+      <li class="docs-row" data-filter="{{ file.name }} {{ file.label }} {{ file.kind_label }}">
+        <button type="button" class="docs-item docs-item--file" data-docs-open
+          data-kind="{{ file.kind }}"
+          data-name="{{ file.label }}"
+          data-full="{{ file.name }}"
+          data-meta="{{ file.kind_label }} · {{ file.size_label }}"
+          data-inline="{{ file.inline_href }}"
+          data-download="{{ file.download_href }}">
+          <span class="docs-badge docs-badge--{{ file.kind }}">{{ file.badge }}</span>
+          <span class="docs-item__text">
+            <strong>{{ file.label }}</strong>
+            <span class="muted">{{ file.kind_label }} · {{ file.size_label }}</span>
+          </span>
+        </button>
+        <span class="docs-actions">
+          <a class="docs-action" href="{{ file.view_href }}">Open</a>
+          <a class="docs-action" href="{{ file.download_href }}">Download</a>
+          <form method="post" action="/documents/delete" class="inline-form" onsubmit="return confirm('Remove this file?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="path" value="{{ file.rel }}">
+            <button type="submit" class="linkish">Remove</button>
+          </form>
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% if not listing.folders and not listing.files %}
+    <p class="muted">This folder is empty. Add a file or make a folder below.</p>
+    {% endif %}
+    <p class="muted" data-docs-empty hidden>Nothing in this folder matches.</p>
+
+    <div class="docs-add">
+      <form method="post" action="/documents/upload" class="form" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="parent" value="{{ listing.rel }}">
+        <label class="field">
+          <span class="field__label">Add files</span>
+          <input class="input" type="file" name="files" multiple>
+        </label>
+        <button type="submit" class="btn btn--primary">Save files</button>
+      </form>
+      <form method="post" action="/documents/folder" class="form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="parent" value="{{ listing.rel }}">
+        <label class="field">
+          <span class="field__label">New folder</span>
+          <input class="input" name="name" required placeholder="NOI Approval, Handbooks…">
+        </label>
+        <button type="submit" class="btn">Make folder</button>
+      </form>
+    </div>
+  </section>
+
+  <aside class="panel docs-preview" data-docs-preview {% if not preview %}hidden{% endif %}>
+    <div class="docs-preview__head">
+      <div>
+        <p class="eyebrow">Reading</p>
+        <h2 data-docs-title>{{ preview.label if preview else "Pick a file" }}</h2>
+        <p class="muted" data-docs-meta>{% if preview %}{{ preview.kind_label }} · {{ preview.size_label }}{% endif %}</p>
+      </div>
+      <div class="docs-preview__actions">
+        <a class="btn btn--small btn--primary" data-docs-download href="{{ preview.download_href if preview else '#' }}">Download</a>
+        <button type="button" class="btn btn--small" data-docs-bigger>Bigger</button>
+        <button type="button" class="btn btn--ghost btn--small" data-docs-close hidden>Close</button>
+      </div>
+    </div>
+    <div class="docs-preview__body" data-docs-body></div>
+  </aside>
+</div>
+
+<div class="docs-modal" data-docs-modal hidden>
+  <div class="docs-modal__card" role="dialog" aria-modal="true" aria-labelledby="docsModalTitle">
+    <div class="docs-preview__head">
+      <div>
+        <h2 id="docsModalTitle" data-docs-modal-title>Document</h2>
+      </div>
+      <div class="docs-preview__actions">
+        <a class="btn btn--small btn--primary" data-docs-modal-download href="#">Download</a>
+        <button type="button" class="btn btn--ghost btn--small" data-docs-modal-close>Close</button>
+      </div>
+    </div>
+    <div class="docs-preview__body" data-docs-modal-body></div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/documents.js?v=20260911e"></script>
+{% endblock %}

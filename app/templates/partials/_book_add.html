@@ -1,0 +1,38 @@
+<form method="post" action="/courses/{{ course.id }}/books" class="form form--grid book-find" data-book-find>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="next" value="{{ next_path }}">
+  <p class="span-2 muted">Scan or type an ISBN / UPC, or just the title. We look it up for you.</p>
+  <label class="field span-2">
+    <span class="field__label">ISBN, UPC, or title</span>
+    <div class="find-row">
+      <input class="input" name="lookup" data-book-query placeholder="978… or the name on the cover" autocomplete="off">
+      <button type="button" class="btn" data-book-search>Find</button>
+      <button type="button" class="btn" data-book-scan hidden>Scan</button>
+    </div>
+  </label>
+  <div class="span-2 book-hits" data-book-hits hidden></div>
+  <label class="field">
+    <span class="field__label">Title</span>
+    <input class="input" name="title" data-book-title placeholder="Filled in after Find, or type it">
+  </label>
+  <label class="field">
+    <span class="field__label">Author</span>
+    <input class="input" name="author" data-book-author>
+  </label>
+  <label class="field">
+    <span class="field__label">What kind</span>
+    <select class="input" name="kind" data-book-kind>
+      {% for value, label in book_kinds %}
+      <option value="{{ value }}">{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="field">
+    <span class="field__label">ISBN</span>
+    <input class="input" name="isbn" data-book-isbn>
+  </label>
+  <input type="hidden" name="upc" data-book-upc value="">
+  <div class="span-2">
+    <button type="submit" class="btn btn--primary">Save book</button>
+  </div>
+</form>

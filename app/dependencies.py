@@ -14,6 +14,22 @@ from app.services.attendance import current_year
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 
+THEMES = ["academy", "light", "dark", "contrast", "forest", "parchment"]
+DENSITIES = ["comfortable", "cozy", "compact"]
+THEME_LABELS = {
+    "academy": "Academy",
+    "light": "Light",
+    "dark": "Dark",
+    "contrast": "High contrast",
+    "forest": "Forest",
+    "parchment": "Parchment",
+}
+DENSITY_LABELS = {
+    "comfortable": "Roomy",
+    "cozy": "Cozy",
+    "compact": "Compact",
+}
+
 
 def session_token(request: Request) -> str | None:
     return request.cookies.get(settings.session_cookie_name)
@@ -70,15 +86,24 @@ def first_student(db: Session) -> Student | None:
 
 def theme_for(request: Request, user: User | None) -> str:
     cookie = (request.cookies.get("aa_theme") or "").strip()
-    allowed = {"light", "dark", "contrast", "academy"}
-    if user and user.theme_preference in allowed:
+    if user and user.theme_preference in THEMES:
         return user.theme_preference
-    if cookie in allowed:
+    if cookie in THEMES:
         return cookie
     return "academy"
 
 
+def density_for(request: Request, user: User | None) -> str:
+    cookie = (request.cookies.get("aa_density") or "").strip()
+    if user and getattr(user, "density_preference", None) in DENSITIES:
+        return user.density_preference
+    if cookie in DENSITIES:
+        return cookie
+    return "cozy"
+
+
 def base_context(request: Request, user: User | None, **extra) -> dict:
+    from app.models import BOOK_KIND_LABELS, BookKind
     from app.services.turnstile import turnstile_required
 
     token = session_token(request)
@@ -95,6 +120,12 @@ def base_context(request: Request, user: User | None, **extra) -> dict:
         "turnstile_site_key": settings.turnstile_site_key,
         "csrf_token": csrf_token_for(token) if token else "",
         "theme": theme_for(request, user),
+        "density": density_for(request, user),
+        "themes": THEMES,
+        "theme_labels": THEME_LABELS,
+        "densities": DENSITIES,
+        "density_labels": DENSITY_LABELS,
+        "book_kinds": [(k.value, BOOK_KIND_LABELS[k]) for k in BookKind],
         "school_year": year,
         **extra,
     }

@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.config import BASE_DIR, settings
-from app.routers import attendance, auth, calendar, courses, grades, home, print_views, settings as settings_router
+from app.routers import attendance, auth, calendar, courses, documents, grades, home, print_views, settings as settings_router
 from app.routers import tasks, theme
 from app.seed import seed
 from app.services.schema import ensure_schema
@@ -67,10 +67,12 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(home.router)
     app.include_router(courses.router)
+    app.include_router(courses.lookup_router)
     app.include_router(grades.router)
     app.include_router(attendance.router)
     app.include_router(calendar.router)
     app.include_router(tasks.router)
+    app.include_router(documents.router)
     app.include_router(print_views.router)
     app.include_router(theme.router)
     app.include_router(settings_router.router)

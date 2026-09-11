@@ -2,19 +2,21 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies import first_student, render, require_teacher, session_token, teacher_profile
-from app.models import Book, Course, CourseTeacher, Enrollment, GradeCategory, User
+from app.models import Book, BookKind, Course, CourseTeacher, Enrollment, GradeCategory, User
+from app.services import books as books_svc
 from app.security import verify_csrf
 from app.seed import COURSE_COLORS
 from app.services import attendance as attendance_svc
 from app.services import grades as grades_svc
 
 router = APIRouter(prefix="/courses")
+lookup_router = APIRouter()
 
 
 @router.get("")
@@ -123,29 +125,62 @@ def add_book(
     db: Session = Depends(get_db),
     user: User = Depends(require_teacher),
     csrf_token: str = Form(""),
-    title: str = Form(...),
+    title: str = Form(""),
     author: str = Form(""),
     notes: str = Form(""),
+    kind: str = Form("other"),
+    isbn: str = Form(""),
+    upc: str = Form(""),
+    lookup: str = Form(""),
     next: str = Form(""),
 ):
     dest = next if next.startswith("/") else f"/courses/{course_id}"
     if not verify_csrf(session_token(request), csrf_token):
         return RedirectResponse(f"{dest}?error=That+form+expired.", status_code=303)
     course = db.get(Course, course_id)
+    if not course:
+        return RedirectResponse("/courses", status_code=303)
     name = title.strip()
-    if not course or not name:
-        return RedirectResponse(f"{dest}?error=Need+a+book+title.", status_code=303)
+    author_name = author.strip()
+    code = (isbn or upc or lookup).strip()
+    if not name and code:
+        hits = books_svc.lookup(code)
+        if hits:
+            hit = hits[0]
+            name = hit.title
+            author_name = author_name or hit.author
+            isbn = hit.isbn or isbn
+            upc = hit.upc or upc or code
+            if kind == "other":
+                kind = hit.kind
+    if not name:
+        return RedirectResponse(f"{dest}?error=Type+a+title+or+scan+an+ISBN.", status_code=303)
+    kind_val = kind.strip().lower()
+    if kind_val not in {k.value for k in BookKind}:
+        kind_val = BookKind.OTHER.value
     db.add(
         Book(
             course_id=course.id,
             title=name,
-            author=author.strip(),
+            author=author_name,
             notes=notes.strip(),
+            kind=kind_val,
+            isbn=books_svc.normalize_code(isbn) or books_svc.normalize_code(lookup),
+            upc=books_svc.normalize_code(upc) or books_svc.normalize_code(lookup),
             sort_order=len(course.books),
         )
     )
     db.commit()
     return RedirectResponse(f"{dest}?ok=Book+added.", status_code=303)
+
+
+@lookup_router.get("/api/books/lookup")
+def book_lookup(
+    q: str = "",
+    user: User = Depends(require_teacher),
+):
+    hits = books_svc.lookup(q)
+    return JSONResponse({"results": books_svc.hits_as_dicts(hits)})
 
 
 @router.post("/{course_id}/books/{book_id}/delete")
