@@ -2,15 +2,16 @@
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.config import BASE_DIR, settings
-from app.routers import attendance, auth, books, calendar, courses, documents, grades, home, print_views, settings as settings_router
+from app.routers import api, attendance, auth, books, calendar, courses, documents, grades, home, print_views, settings as settings_router
 from app.routers import tasks, theme, usage
 from app.seed import seed
 from app.services.documents import ensure_library_layout
@@ -44,8 +45,40 @@ def create_app() -> FastAPI:
     (static_dir / "js").mkdir(parents=True, exist_ok=True)
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+    web_dist = BASE_DIR / "web" / "dist"
+
+    @app.middleware("http")
+    async def spa_desk(request: Request, call_next):
+        if request.method != "GET":
+            return await call_next(request)
+        path = request.url.path
+        keep = (
+            path.startswith("/api")
+            or path.startswith("/print")
+            or path.startswith("/static")
+            or path.startswith("/documents/inline")
+            or path.startswith("/documents/download")
+            or path.startswith("/teacher/read-pages")
+            or path == "/health"
+        )
+        if keep or os.environ.get("PYTEST_CURRENT_TEST"):
+            return await call_next(request)
+        index = web_dist / "index.html"
+        if not index.is_file():
+            return await call_next(request)
+        rel = path.lstrip("/")
+        if rel:
+            candidate = (web_dist / rel).resolve()
+            root = web_dist.resolve()
+            if str(candidate).startswith(str(root)) and candidate.is_file():
+                return FileResponse(candidate)
+        return FileResponse(index, media_type="text/html")
+
     @app.exception_handler(HTTPException)
     async def auth_redirect(request: Request, exc: HTTPException):
+        if request.url.path.startswith("/api") or request.url.path.startswith("/teacher/read-pages"):
+            detail = exc.detail if isinstance(exc.detail, str) else "Error"
+            return JSONResponse({"error": detail}, status_code=exc.status_code)
         if exc.status_code == 401:
             path = request.url.path
             door = "teacher"
@@ -66,6 +99,7 @@ def create_app() -> FastAPI:
     def health():
         return {"status": "ok", "app": settings.site_name}
 
+    app.include_router(api.router)
     app.include_router(auth.router)
     app.include_router(home.router)
     app.include_router(courses.router)

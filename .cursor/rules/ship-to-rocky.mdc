@@ -8,6 +8,6 @@ alwaysApply: true
 If the family cannot see it on `aa.difedes.com`, it is not done.
 
 - After a real feature or fix, commit (when the user asked to ship, or they already said to always ship), push `main` to GitHub, then update Rocky.
-- Rocky: `ssh Rocky-T7910` then `cd /home/joe/aa && git pull && .venv/bin/pip install -r requirements.txt && .venv/bin/alembic upgrade head && sudo systemctl restart aa`
+- Rocky: `ssh Rocky-T7910` then `cd /home/joe/aa && git pull && .venv/bin/pip install -r requirements.txt && .venv/bin/alembic upgrade head && (command -v node >/dev/null || bash deploy/install-node-rocky.sh) && cd web && npm ci && npm run build && cd .. && sudo systemctl restart aa`
 - Never commit `.env`, `/etc/aa.env`, `AA-KEYS.txt`, or other secrets.
 - Do not wait for a second “please deploy” if the user already asked to push to git and Rocky every time.

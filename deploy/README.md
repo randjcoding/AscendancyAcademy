@@ -52,6 +52,16 @@ ssh joe@192.168.68.71 "chmod 600 /home/joe/aa/.env && sudo cp /home/joe/aa/.env 
 9. Cloudflare Zero Trust: **`aa.difedes.com` → HTTP → `http://127.0.0.1:8030`**
 10. Cloudflare Turnstile: add `aa.difedes.com` to the existing HV3 widget, then set `TURNSTILE_ENABLED=true` in `/etc/aa.env` and restart.
 
+## Node (for the React desk)
+
+Once on Rocky, install Node 20 if `node -v` is missing:
+
+```bash
+bash /home/joe/aa/deploy/install-node-rocky.sh
+```
+
+Cloudflare still points at port **8030**. Uvicorn serves `web/dist` after `npm run build`. Do not commit `web/dist` or `node_modules`.
+
 ## Updates
 
 ```bash
@@ -59,6 +69,7 @@ cd /home/joe/aa
 git pull
 .venv/bin/pip install -r requirements.txt
 .venv/bin/alembic upgrade head
+cd web && npm ci && npm run build && cd ..
 sudo systemctl restart aa
 ```
 

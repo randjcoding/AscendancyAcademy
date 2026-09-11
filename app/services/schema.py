@@ -114,6 +114,13 @@ def ensure_schema() -> None:
             ddl="list_view_preference VARCHAR(20) DEFAULT 'cards'",
             adds=adds,
         )
+        _add_if_missing(
+            cols=cols,
+            table="users",
+            name="role",
+            ddl="role VARCHAR(20) DEFAULT 'teacher'",
+            adds=adds,
+        )
 
     if "attendance_days" in tables:
         cols = {c["name"] for c in insp.get_columns("attendance_days")}

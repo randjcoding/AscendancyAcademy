@@ -14,6 +14,13 @@ This is a homeschool desk, not a training course. A tired parent or a student sh
 - Always ship more than one look: color themes (ascendancy, giants, academy, light, dark, contrast, forest, parchment) and densities (comfortable, cozy, compact). New chrome belongs in all of them.
 - Prefer lookup and defaults (ISBN/UPC, today’s date, book + pages) over empty forms.
 - If a control looks like it should change the site and does not, that is a bug.
+- The desk is the Vite + React app in `web/`. FastAPI serves JSON at `/api` and the built files from `web/dist`. Print stays server HTML.
+- Everyday Add patterns share one modal shell (new class, add book, add documents, new folder). Backdrop is about 75% ink.
+- Themes sit immediately left of the name. The name is far right and opens Profile, Change password, and Sign out.
+- Long names wrap in every density. Use `min-width: 0` and `overflow-wrap: anywhere`. Never `alert` or `confirm` — use the themed dialog.
+- Class color is a real picker (swatches + any color + eyedropper). Grade weights default to Same for all (25/25/25/25).
+- Documents is a folder explorer: tree, multi-select, drag to move, drop to upload. Not a stacked list.
+- Attendance: the whole day cell cycles. The padlock sits top-right and does not cycle the mark.
 
 ```html
 <!-- ❌ BAD: one frozen look -->

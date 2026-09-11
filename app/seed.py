@@ -53,6 +53,7 @@ def _upsert_user(
     password: str,
     kind: UserKind,
     is_admin: bool,
+    role: str = "",
     previous_emails: tuple[str, ...] = (),
 ) -> User:
     email_norm = email.lower().strip()
@@ -64,10 +65,15 @@ def _upsert_user(
             user.email = email_norm
             user.first_name = first_name.strip()
             user.last_name = last_name.strip()
+            if role:
+                user.role = role
             db.add(user)
             db.flush()
             return user
     if user:
+        if role:
+            user.role = role
+            db.add(user)
         return user
     user = User(
         email=email_norm,
@@ -75,6 +81,7 @@ def _upsert_user(
         last_name=last_name.strip(),
         password_hash=hash_password(password),
         kind=kind,
+        role=role or ("student" if kind == UserKind.STUDENT else "teacher"),
         is_admin=is_admin,
         status=AccountStatus.ACTIVE,
         must_change_password=True,
@@ -121,6 +128,7 @@ def seed(db: Session | None = None) -> None:
             password=settings.teacher1_password,
             kind=UserKind.TEACHER,
             is_admin=True,
+            role="super_admin",
         )
         kim = _upsert_user(
             db,
@@ -130,6 +138,7 @@ def seed(db: Session | None = None) -> None:
             password=settings.teacher2_password,
             kind=UserKind.TEACHER,
             is_admin=True,
+            role="teacher",
             previous_emails=OLD_TEACHER2_EMAILS,
         )
         greg = _upsert_user(
@@ -140,6 +149,7 @@ def seed(db: Session | None = None) -> None:
             password=settings.student1_password,
             kind=UserKind.STUDENT,
             is_admin=False,
+            role="student",
         )
 
         joe_t = db.scalar(select(Teacher).where(Teacher.user_id == joe.id))

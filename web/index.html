@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" data-theme="ascendancy" data-density="cozy">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/mark.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ascendancy Academy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650;9..144,700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      (function () {
+        var themes = { ascendancy: 1, giants: 1, academy: 1, light: 1, dark: 1, contrast: 1, forest: 1, parchment: 1 };
+        var dens = { comfortable: 1, cozy: 1, compact: 1 };
+        function cookie(name) {
+          var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+          return m ? decodeURIComponent(m[1]) : '';
+        }
+        var theme = cookie('aa_theme');
+        var density = cookie('aa_density');
+        try {
+          if (!themes[theme]) theme = localStorage.getItem('aa.theme') || '';
+          if (!dens[density]) density = localStorage.getItem('aa.density') || '';
+        } catch (e) {}
+        if (!themes[theme]) theme = 'ascendancy';
+        if (!dens[density]) density = 'cozy';
+        document.documentElement.setAttribute('data-theme', theme);
+        document.documentElement.setAttribute('data-density', density);
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

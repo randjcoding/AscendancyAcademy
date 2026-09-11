@@ -306,6 +306,25 @@ def save_upload(parent_rel: str | None, filename: str, data: bytes) -> str:
     return f"{rel}/{name}".strip("/")
 
 
+def move_entries(paths: list[str], dest_rel: str) -> int:
+    dest = resolve_rel(dest_rel)
+    if not dest.is_dir():
+        raise DocumentsError("That folder is not there.", 404)
+    moved = 0
+    for raw in paths:
+        src = resolve_rel(raw)
+        if not src.exists():
+            raise DocumentsError("A selected item is gone.", 404)
+        if dest == src or dest.is_relative_to(src):
+            raise DocumentsError("Cannot move a folder into itself.")
+        target = dest / src.name
+        if target.exists():
+            raise DocumentsError(f"{src.name} is already in that folder.")
+        shutil.move(str(src), str(target))
+        moved += 1
+    return moved
+
+
 def delete_entry(rel: str) -> None:
     norm = normalize_rel(rel)
     if not norm:

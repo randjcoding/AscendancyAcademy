@@ -1,0 +1,17 @@
+---
+description: Later ideas — do not build these now
+alwaysApply: true
+---
+
+# Later, not this desk
+
+This is one family’s homeschool on Rocky. Do not add selling-scale accounts, extra families, or observer roles unless Joe asks.
+
+Save for later:
+
+- More than one academy or family on the same server
+- Observers (grandparents, tutors) who can look but not change
+- Paid plans, billing, or a public signup
+- A marketplace or shared curriculum store
+
+Roles stay thin for now: `student | teacher | admin | super_admin`. Joe is the only super admin. Kim is a teacher. Gregory is a student.

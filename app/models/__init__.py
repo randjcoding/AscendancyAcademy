@@ -75,6 +75,7 @@ class User(Base):
     last_name: Mapped[str] = mapped_column(String(80), default="")
     password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     kind: Mapped[UserKind] = mapped_column(_enum(UserKind, "user_kind"), index=True)
+    role: Mapped[str] = mapped_column(String(20), default="teacher", index=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[AccountStatus] = mapped_column(
         _enum(AccountStatus, "account_status"), default=AccountStatus.ACTIVE, index=True
@@ -111,6 +112,14 @@ class User(Base):
     @property
     def is_student(self) -> bool:
         return self.kind == UserKind.STUDENT
+
+    @property
+    def is_super_admin(self) -> bool:
+        return self.role == "super_admin"
+
+    @property
+    def can_manage_people(self) -> bool:
+        return self.role in {"admin", "super_admin"} or self.is_admin
 
 
 class SessionRow(Base):
