@@ -47,12 +47,12 @@ export function Layout() {
         </div>
         <button
           type="button"
-          className="nav-toggle"
-          aria-label="Open menu"
+          className="btn btn--ghost nav-toggle"
+          aria-label={navOpen ? 'Close menu' : 'Open menu'}
           aria-expanded={navOpen}
           onClick={() => setNavOpen((v) => !v)}
         >
-          Menu
+          {navOpen ? 'Close' : 'Menu'}
         </button>
         <nav className="topnav" id="topnav">
           {teacher ? (

@@ -5,11 +5,10 @@ import { useAuth } from '../Auth'
 import { BrandMark } from '../ui/BrandMark'
 
 export function Choose() {
-  const { user, loading, me, setLook } = useAuth()
+  const { user, loading, me } = useAuth()
   if (loading) return null
   if (user?.must_change_password) return <Navigate to="/password" replace />
   if (user) return <Navigate to={user.is_teacher ? '/teacher' : '/student'} replace />
-  const density = document.documentElement.getAttribute('data-density') || 'cozy'
   return (
     <div className="gate-page">
       <div className="gate">
@@ -31,21 +30,6 @@ export function Choose() {
             <strong>I am Gregory</strong>
             <span>See what’s due, grades, and the calendar.</span>
           </Link>
-        </div>
-        <div className="gate-look">
-          <div className="look-menu__row">
-            {(me?.themes || []).map((item) => (
-              <button
-                key={item}
-                type="button"
-                className="look-swatch"
-                data-theme-preview={item}
-                onClick={() => void setLook(item, density)}
-              >
-                {me?.theme_labels?.[item] || item}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
     </div>
