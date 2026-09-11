@@ -36,13 +36,15 @@ export function Layout() {
   return (
     <div className="app-shell">
       <header className={`topbar ${navOpen ? 'is-nav-open' : ''}`} id="topbar">
-        <Link to={teacher ? '/teacher' : '/student'} className="brand">
-          <BrandMark />
-          <span className="brand__words">
-            <span className="brand__text">{me?.site_name || 'Ascendancy Academy'}</span>
-            <span className="brand__tag">Ascend above the standards.</span>
-          </span>
-        </Link>
+        <div className="topbar__brand">
+          <Link to={teacher ? '/teacher' : '/student'} className="brand">
+            <BrandMark />
+            <span className="brand__words">
+              <span className="brand__text">{me?.site_name || 'Ascendancy Academy'}</span>
+              <span className="brand__tag">Ascend above the standards.</span>
+            </span>
+          </Link>
+        </div>
         <button
           type="button"
           className="nav-toggle"

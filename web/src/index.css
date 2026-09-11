@@ -183,10 +183,10 @@ p { margin: 0 0 0.8em; }
 .eyebrow { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.78rem; color: var(--gold); margin-bottom: 0.35rem; }
 
 .topbar {
-  display: grid;
-  grid-template-columns: minmax(11rem, 1fr) auto minmax(11rem, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem 1rem;
+  gap: 0.6rem 1.1rem;
   padding: 0.7rem 1.1rem 0.75rem;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
@@ -194,9 +194,15 @@ p { margin: 0 0 0.8em; }
   top: 0;
   z-index: 20;
 }
+.topbar__brand {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-width: 0;
+}
 .brand {
   display: flex; align-items: center; gap: 0.55rem;
-  text-decoration: none; color: var(--ink); justify-self: start; min-width: 0;
+  text-decoration: none; color: var(--ink); min-width: 0;
 }
 .brand__words { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
 .brand__text { font-family: var(--display); font-weight: 700; }
@@ -217,7 +223,8 @@ p { margin: 0 0 0.8em; }
 }
 .topnav {
   display: flex; flex-wrap: wrap; gap: 0.35rem 0.85rem;
-  justify-content: center; justify-self: center;
+  justify-content: flex-start; align-items: center;
+  flex: 0 1 auto;
 }
 .topnav a { text-decoration: none; color: var(--ink); padding: 0.25rem 0; }
 .topnav a.is-current { font-weight: 700; border-bottom: 2px solid var(--gold); }
@@ -514,11 +521,10 @@ body.docs-modal-open { overflow: hidden; }
 @media (max-width: 800px) {
   .form--grid, .split, .hero-card, .door-grid, .stat-row, .attend-actions, .docs-desk { grid-template-columns: 1fr; }
   .photo-upload .input--xl, .photo-upload .btn--xl { min-height: 3.2rem; }
-  .nav-toggle { display: inline-flex; justify-self: end; }
-  .topbar { grid-template-columns: 1fr auto; }
+  .nav-toggle { display: inline-flex; margin-left: auto; }
   .topnav, .topbar__actions, .topbar__end { display: none; width: 100%; }
-  .topbar.is-nav-open .topnav { display: flex; grid-column: 1 / -1; }
-  .topbar.is-nav-open .topbar__end { display: flex; grid-column: 1 / -1; justify-self: stretch; }
+  .topbar.is-nav-open .topnav,
+  .topbar.is-nav-open .topbar__end { display: flex; }
   .look-menu { margin-left: auto; }
   .look-menu__panel { right: auto; left: 0; width: min(20rem, calc(100vw - 2rem)); }
   .btn, button.btn { min-height: 2.75rem; }
@@ -534,7 +540,7 @@ body.docs-modal-open { overflow: hidden; }
 }
 
 #root { min-height: 100%; }
-.topbar__end { display: flex; align-items: center; gap: 0.35rem; justify-self: end; }
+.topbar__end { display: flex; align-items: center; gap: 0.35rem; margin-left: auto; }
 .account-menu { position: relative; }
 .account-menu__panel {
   position: absolute; right: 0; top: calc(100% + 0.4rem);
