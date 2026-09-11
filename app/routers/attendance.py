@@ -121,6 +121,44 @@ def set_day(
     return RedirectResponse(dest, status_code=303)
 
 
+@router.post("/attendance/today")
+def mark_today(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_teacher),
+    csrf_token: str = Form(""),
+    student_id: int = Form(...),
+    status: str = Form("present"),
+    next: str = Form("/teacher"),
+):
+    if not verify_csrf(session_token(request), csrf_token):
+        return RedirectResponse("/teacher", status_code=303)
+    student = db.get(Student, student_id)
+    school_year = attendance_svc.current_year(db)
+    today = date.today()
+    chosen = AttendanceStatus.PRESENT
+    if status in {s.value for s in AttendanceStatus}:
+        chosen = AttendanceStatus(status)
+    if student and school_year:
+        record = attendance_svc.day_record(db, student.id, today)
+        if record:
+            record.status = chosen
+            record.entered_by_user_id = user.id
+        else:
+            db.add(
+                AttendanceDay(
+                    student_id=student.id,
+                    school_year_id=school_year.id,
+                    on_date=today,
+                    status=chosen,
+                    entered_by_user_id=user.id,
+                )
+            )
+        db.commit()
+    dest = next if next.startswith("/") else "/teacher"
+    return RedirectResponse(dest, status_code=303)
+
+
 @router.post("/attendance/today-present")
 def mark_today_present(
     request: Request,
@@ -130,26 +168,12 @@ def mark_today_present(
     student_id: int = Form(...),
     next: str = Form("/teacher"),
 ):
-    if not verify_csrf(session_token(request), csrf_token):
-        return RedirectResponse("/teacher", status_code=303)
-    student = db.get(Student, student_id)
-    school_year = attendance_svc.current_year(db)
-    today = date.today()
-    if student and school_year:
-        record = attendance_svc.day_record(db, student.id, today)
-        if record:
-            record.status = AttendanceStatus.PRESENT
-            record.entered_by_user_id = user.id
-        else:
-            db.add(
-                AttendanceDay(
-                    student_id=student.id,
-                    school_year_id=school_year.id,
-                    on_date=today,
-                    status=AttendanceStatus.PRESENT,
-                    entered_by_user_id=user.id,
-                )
-            )
-        db.commit()
-    dest = next if next.startswith("/") else "/teacher"
-    return RedirectResponse(dest, status_code=303)
+    return mark_today(
+        request,
+        db=db,
+        user=user,
+        csrf_token=csrf_token,
+        student_id=student_id,
+        status="present",
+        next=next,
+    )

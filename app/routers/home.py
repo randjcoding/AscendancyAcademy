@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
@@ -15,11 +15,14 @@ from app.dependencies import (
     render,
     require_student,
     require_teacher,
+    session_token,
     student_profile,
 )
-from app.models import Assignment, Course, Enrollment, Grade, User, UserKind
+from app.models import Assignment, Book, Course, Enrollment, Grade, User, UserKind
+from app.security import verify_csrf
 from app.services import attendance as attendance_svc
 from app.services import grades as grades_svc
+from app.services import pages as pages_svc
 
 router = APIRouter()
 
@@ -63,6 +66,8 @@ def teacher_home(
             )
             .options(
                 joinedload(Enrollment.course).joinedload(Course.assignments),
+                joinedload(Enrollment.course).joinedload(Course.books),
+                joinedload(Enrollment.course).joinedload(Course.categories),
                 joinedload(Enrollment.grades),
             )
         ).unique().all()
@@ -99,7 +104,69 @@ def teacher_home(
         waiting=waiting[:8],
         courses=courses,
         upcoming=upcoming,
+        error=request.query_params.get("error", ""),
+        ok=request.query_params.get("ok", ""),
     )
+
+
+@router.post("/teacher/quick-assign")
+def teacher_quick_assign(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_teacher),
+    csrf_token: str = Form(""),
+    course_id: int = Form(...),
+    book_id: int = Form(0),
+    pages: str = Form(""),
+    bulk_pages: str = Form(""),
+    has_work: str = Form(""),
+    due_date: str = Form(""),
+    show_on_calendar: str = Form("1"),
+):
+    if not verify_csrf(session_token(request), csrf_token):
+        return RedirectResponse("/teacher?error=That+form+expired.", status_code=303)
+    course = db.get(Course, course_id)
+    if not course:
+        return RedirectResponse("/teacher?error=Pick+a+class.", status_code=303)
+    book = db.get(Book, book_id) if book_id else None
+    if book and book.course_id != course.id:
+        return RedirectResponse("/teacher?error=That+book+is+not+in+this+class.", status_code=303)
+    if not book and not pages.strip() and not bulk_pages.strip():
+        return RedirectResponse("/teacher?error=Add+a+book+and+pages+first.", status_code=303)
+    parsed_due = date.today()
+    if due_date.strip():
+        try:
+            parsed_due = date.fromisoformat(due_date.strip())
+        except ValueError:
+            return RedirectResponse("/teacher?error=That+due+date+is+not+valid.", status_code=303)
+    default_work = bool(has_work)
+    specs = pages_svc.parse_bulk(bulk_pages, default_has_work=default_work)
+    if not specs:
+        spec = pages_svc.parse_line(pages, default_has_work=default_work)
+        if spec:
+            specs = [spec]
+    if not specs:
+        return RedirectResponse(
+            "/teacher?error=Type+pages+like+12-15+or+one+range+per+line.",
+            status_code=303,
+        )
+    workish = any(s.has_work for s in specs)
+    category = pages_svc.default_category(course, workish)
+    if not category:
+        return RedirectResponse("/teacher?error=This+class+needs+a+grade+category.", status_code=303)
+    count = pages_svc.create_page_assignments(
+        db,
+        course=course,
+        user_id=user.id,
+        book=book,
+        specs=specs,
+        category=category,
+        due_date=parsed_due,
+        show_on_calendar=bool(show_on_calendar),
+    )
+    db.commit()
+    label = "page set" if count == 1 else "page sets"
+    return RedirectResponse(f"/teacher?ok={count}+{label}+added.", status_code=303)
 
 
 @router.get("/student")

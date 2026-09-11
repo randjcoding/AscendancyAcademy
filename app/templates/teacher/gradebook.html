@@ -3,7 +3,7 @@
 {% block content %}
 <header class="page-head">
   <div>
-    <p class="eyebrow"><a href="/courses">Classes</a></p>
+    <p class="eyebrow"><a href="/courses">Classes</a> · <a href="/teacher">Desk</a></p>
     <h1>{{ course.title }}</h1>
     {% if student %}
     <p class="muted">{{ student.display_name }}
@@ -31,35 +31,92 @@
 {% endif %}
 
 <section class="panel">
-  <h2>Add work</h2>
+  <h2>Books</h2>
+  {% if books %}
+  <ul class="plain-list">
+    {% for book in books %}
+    <li>
+      <strong>{{ book.title }}</strong>
+      {% if book.author %}<span class="muted">{{ book.author }}</span>{% endif %}
+      <form method="post" action="/courses/{{ course.id }}/books/{{ book.id }}/delete" class="inline-form" onsubmit="return confirm('Remove this book? Assignments stay.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="linkish">Remove</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">Add the textbooks Gregory uses in this class. Then assigning pages is just a page number.</p>
+  {% endif %}
+  <form method="post" action="/courses/{{ course.id }}/books" class="form form--grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="field">
+      <span class="field__label">Book title</span>
+      <input class="input" name="title" required placeholder="Saxon 5/4, Story of the World…">
+    </label>
+    <label class="field">
+      <span class="field__label">Author</span>
+      <input class="input" name="author" placeholder="Optional">
+    </label>
+    <div class="span-2">
+      <button type="submit" class="btn btn--primary">Add book</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Add pages or other work</h2>
+  <p class="muted">Type <strong>12-15</strong> or paste many lines. Put <strong>work</strong> or <strong>reading</strong> on a line when some pages have problems and others do not.</p>
   <form method="post" action="/courses/{{ course.id }}/assignments" class="form form--grid">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="field">
+      <span class="field__label">Book</span>
+      <select class="input" name="book_id">
+        <option value="0">No book / other work</option>
+        {% for book in books %}
+        <option value="{{ book.id }}">{{ book.title }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span class="field__label">Pages</span>
+      <input class="input" name="pages" placeholder="12-15">
+    </label>
     <label class="field span-2">
-      <span class="field__label">Name</span>
-      <input class="input" name="title" required placeholder="Chapter 4 test, Friday quiz…">
+      <span class="field__label">Many at once (one per line)</span>
+      <textarea class="input" name="bulk_pages" rows="5" placeholder="12-15 work&#10;16-18 reading&#10;19-22 work"></textarea>
+    </label>
+    <label class="field">
+      <span class="field__label">Name (optional)</span>
+      <input class="input" name="title" placeholder="Leave blank to use the book and pages">
     </label>
     <label class="field">
       <span class="field__label">Type</span>
       <select class="input" name="category_id">
+        <option value="0">Pick for me</option>
         {% for cat in categories %}
         <option value="{{ cat.id }}">{{ cat.name }}</option>
         {% endfor %}
       </select>
     </label>
     <label class="field">
-      <span class="field__label">Points</span>
-      <input class="input" type="number" name="points_possible" value="100" min="1" step="0.5">
-    </label>
-    <label class="field">
       <span class="field__label">Due date</span>
       <input class="input" type="date" name="due_date">
+    </label>
+    <label class="field">
+      <span class="field__label">Points (if it has work)</span>
+      <input class="input" type="number" name="points_possible" value="100" min="0" step="0.5">
+    </label>
+    <label class="field check-field">
+      <input type="checkbox" name="has_work" value="1" checked>
+      <span>These pages have work to turn in</span>
     </label>
     <label class="field check-field">
       <input type="checkbox" name="show_on_calendar" value="1" checked>
       <span>Put on the calendar</span>
     </label>
     <div class="span-2">
-      <button type="submit" class="btn btn--primary">Add assignment</button>
+      <button type="submit" class="btn btn--primary">Add to class</button>
     </div>
   </form>
 </section>
@@ -72,10 +129,10 @@
       <thead>
         <tr>
           <th>Work</th>
+          <th>Book / pages</th>
           <th>Type</th>
           <th>Due</th>
           <th>Score</th>
-          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -84,17 +141,29 @@
         <tr>
           <td>
             <strong>{{ assignment.title }}</strong>
+            {% if assignment.has_work %}
+            <span class="pill pill--work">Work</span>
+            {% else %}
+            <span class="pill">Reading</span>
+            {% endif %}
             <div class="row-actions">
+              {% if assignment.has_work %}
               <a href="/print/grade-sheet/{{ assignment.id }}" target="_blank">Print grading sheet</a>
+              {% endif %}
               <form method="post" action="/courses/{{ course.id }}/assignments/{{ assignment.id }}/delete" class="inline-form" onsubmit="return confirm('Remove this assignment?');">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <button type="submit" class="linkish">Remove</button>
               </form>
             </div>
           </td>
+          <td>
+            {% if assignment.book %}{{ assignment.book.title }}{% endif %}
+            {% if assignment.pages %}<div class="muted">{{ assignment.page_label }}</div>{% endif %}
+          </td>
           <td>{{ assignment.category.name }}</td>
           <td>{% if assignment.due_date %}{{ assignment.due_date.strftime('%b %d') }}{% else %}—{% endif %}</td>
-          <td colspan="2">
+          <td>
+            {% if assignment.has_work %}
             <form method="post" action="/courses/{{ course.id }}/grades" class="score-form">
               <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
               <input type="hidden" name="assignment_id" value="{{ assignment.id }}">
@@ -104,6 +173,9 @@
               <input class="input" name="notes" placeholder="Note" value="{{ grade.notes if grade else '' }}">
               <button type="submit" class="btn btn--small btn--primary">Save</button>
             </form>
+            {% else %}
+            <span class="muted">No score — reading only</span>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -111,7 +183,7 @@
     </table>
   </div>
   {% else %}
-  <p class="muted">Add the first assignment above. Then type the score when the paper is graded.</p>
+  <p class="muted">Add a book, then add pages. That’s the fastest way to fill the year.</p>
   {% endif %}
 </section>
 

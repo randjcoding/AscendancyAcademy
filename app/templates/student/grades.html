@@ -33,11 +33,16 @@
         {% for assignment in assignments %}
         {% set grade = grade_map.get(assignment.id) %}
         <tr>
-          <td>{{ assignment.title }}</td>
-          <td>{{ assignment.category.name }}</td>
+          <td>
+            {{ assignment.title }}
+            {% if assignment.pages %}<div class="muted">{{ assignment.page_label }}</div>{% endif %}
+          </td>
+          <td>{{ assignment.category.name }}{% if not assignment.has_work %} · reading{% endif %}</td>
           <td>{% if assignment.due_date %}{{ assignment.due_date.strftime('%b %d') }}{% else %}—{% endif %}</td>
           <td>
-            {% if grade %}
+            {% if not assignment.has_work %}
+            <span class="muted">Reading</span>
+            {% elif grade %}
             {{ grade.points_earned }} / {{ assignment.points_possible }}
             {% else %}
             <span class="muted">Not scored yet</span>

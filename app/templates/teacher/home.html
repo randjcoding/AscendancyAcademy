@@ -3,27 +3,38 @@
 {% block content %}
 <header class="page-head">
   <div>
-    <h1>Hello, {{ current_user.first_name }}.</h1>
-    <p class="muted">Today is {{ today.strftime('%A, %B %-d, %Y') if false else today.strftime('%A, %B %d, %Y') }}.</p>
+    <h1>Teacher desk</h1>
+    <p class="muted">{{ today.strftime('%A, %B %d, %Y') }}{% if student %} · {{ student.display_name }}{% endif %}</p>
   </div>
 </header>
 
-{% if student and totals %}
-<section class="hero-card">
-  <div class="hero-card__copy">
-    <p class="eyebrow">Attendance</p>
-    <h2>{{ student.display_name }}</h2>
-    <p class="muted">{{ totals.present }} days present · {{ totals.remaining }} left toward {{ totals.target }}</p>
-    {% if today_status and today_status.value == 'present' %}
-    <p class="pill pill--present">Marked present today</p>
-    {% else %}
-    <form method="post" action="/attendance/today-present" class="inline-form">
+{% if error %}<div class="status status--error">{{ error }}</div>{% endif %}
+{% if ok %}<div class="status status--ok">{{ ok }}</div>{% endif %}
+
+{% if student %}
+<section class="panel">
+  <div class="panel__head">
+    <div>
+      <p class="eyebrow">Today’s attendance</p>
+      <h2>{{ student.display_name }}</h2>
+      {% if totals %}
+      <p class="muted">{{ totals.present }} present · {{ totals.remaining }} left toward {{ totals.target }}</p>
+      {% endif %}
+    </div>
+    {% if today_status %}
+    <p class="pill pill--{{ today_status.value }}">Today: {{ today_status.value|title }}</p>
+    {% endif %}
+  </div>
+  <div class="attend-actions">
+    {% for label, value in [("Present", "present"), ("Absent", "absent"), ("Excused", "excused"), ("Day off", "off")] %}
+    <form method="post" action="/attendance/today">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="student_id" value="{{ student.id }}">
+      <input type="hidden" name="status" value="{{ value }}">
       <input type="hidden" name="next" value="/teacher">
-      <button type="submit" class="btn btn--primary btn--xl">Mark {{ student.display_name }} present today</button>
+      <button type="submit" class="btn {% if today_status and today_status.value == value %}btn--primary{% endif %} btn--xl">{{ label }}</button>
     </form>
-    {% endif %}
+    {% endfor %}
   </div>
   <div class="week-strip" aria-label="This week">
     {% for day in week %}
@@ -36,9 +47,7 @@
       <button type="submit">
         <span class="week-day__name">{{ day.date.strftime('%a') }}</span>
         <span class="week-day__num">{{ day.date.day }}</span>
-        <span class="week-day__mark">
-          {% if day.status %}{{ day.status.value[0]|upper }}{% else %}·{% endif %}
-        </span>
+        <span class="week-day__mark">{% if day.status %}{{ day.status.value[0]|upper }}{% else %}·{% endif %}</span>
       </button>
     </form>
     {% endfor %}
@@ -46,27 +55,113 @@
 </section>
 {% endif %}
 
-<section class="quick-row">
-  <a class="quick-btn" href="/attendance">Open attendance</a>
-  <a class="quick-btn" href="/courses">Add a class or grade</a>
-  <a class="quick-btn" href="/print/attendance/month?blank=1" target="_blank">Print this month</a>
-  <a class="quick-btn" href="/print/attendance/year?blank=1" target="_blank">Print year packet</a>
+<section class="panel">
+  <p class="eyebrow">Add work</p>
+  <h2>Assign pages</h2>
+  <p class="muted">Pick the class and book, then type pages. One range like <strong>12-15</strong>, or many lines. Add the word <strong>work</strong> or <strong>reading</strong> on a line when it helps.</p>
+  {% if courses %}
+  <form method="post" action="/teacher/quick-assign" class="form form--grid" id="quickAssign">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="field">
+      <span class="field__label">Class</span>
+      <select class="input" name="course_id" id="quickCourse" required>
+        {% for course in courses %}
+        <option value="{{ course.id }}">{{ course.title }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span class="field__label">Book</span>
+      <select class="input" name="book_id" id="quickBook">
+        <option value="0">No book yet</option>
+        {% for course in courses %}
+          {% for book in course.books %}
+          <option value="{{ book.id }}" data-course="{{ course.id }}">{{ book.title }}{% if book.author %} — {{ book.author }}{% endif %}</option>
+          {% endfor %}
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span class="field__label">Pages today</span>
+      <input class="input" name="pages" placeholder="12-15 or 12, 18, 20-22">
+    </label>
+    <label class="field">
+      <span class="field__label">Due</span>
+      <input class="input" type="date" name="due_date" value="{{ today.isoformat() }}">
+    </label>
+    <label class="field span-2">
+      <span class="field__label">Or paste many days at once (one per line)</span>
+      <textarea class="input" name="bulk_pages" rows="5" placeholder="12-15 work&#10;16-18 reading&#10;19-21 work"></textarea>
+    </label>
+    <label class="field check-field">
+      <input type="checkbox" name="has_work" value="1" checked>
+      <span>These pages have work to turn in</span>
+    </label>
+    <label class="field check-field">
+      <input type="checkbox" name="show_on_calendar" value="1" checked>
+      <span>Put on the calendar</span>
+    </label>
+    <div class="span-2">
+      <button type="submit" class="btn btn--primary btn--xl">Add pages</button>
+    </div>
+  </form>
+  {% else %}
+  <p class="muted">Create a class first, then add its books.</p>
+  <p><a class="btn btn--primary" href="/courses">Add a class</a></p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel__head">
+    <h2>Classes and books</h2>
+    <a class="btn btn--small" href="/courses">Manage classes</a>
+  </div>
+  {% if courses %}
+  <div class="card-grid">
+    {% for course in courses %}
+    <article class="class-card" style="--course: {{ course.color }}">
+      <h3><a href="/courses/{{ course.id }}">{{ course.title }}</a></h3>
+      {% if course.books %}
+      <ul class="plain-list">
+        {% for book in course.books %}
+        <li>
+          <strong>{{ book.title }}</strong>
+          {% if book.author %}<span class="muted">{{ book.author }}</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">No books yet.</p>
+      {% endif %}
+      <form method="post" action="/courses/{{ course.id }}/books" class="form book-add">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="next" value="/teacher">
+        <input class="input" name="title" required placeholder="Add a book title">
+        <input class="input" name="author" placeholder="Author (optional)">
+        <button type="submit" class="btn btn--small btn--primary">Add book</button>
+      </form>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">No classes yet.</p>
+  {% endif %}
 </section>
 
 <div class="split">
   <section class="panel">
-    <h2>Grades waiting</h2>
+    <h2>Scores waiting</h2>
     {% if waiting %}
     <ul class="plain-list">
       {% for enrollment, assignment in waiting %}
       <li>
         <a href="/courses/{{ enrollment.course_id }}">{{ assignment.title }}</a>
-        <span class="muted">{{ enrollment.course.title }}{% if assignment.due_date %} · due {{ assignment.due_date.strftime('%b %d') }}{% endif %}</span>
+        <span class="muted">{{ enrollment.course.title }}{% if assignment.pages %} · {{ assignment.page_label }}{% endif %}{% if assignment.due_date %} · due {{ assignment.due_date.strftime('%b %d') }}{% endif %}</span>
       </li>
       {% endfor %}
     </ul>
     {% else %}
-    <p class="muted">Nothing waiting. When you add a test or assignment, it shows up here until you type the score.</p>
+    <p class="muted">No graded work waiting for a score.</p>
     {% endif %}
   </section>
   <section class="panel">
@@ -83,7 +178,17 @@
     {% else %}
     <p class="muted">No upcoming due dates yet.</p>
     {% endif %}
-    <p><a href="/calendar">Open the calendar</a></p>
   </section>
 </div>
+
+<section class="quick-row" aria-label="More on the desk">
+  <a class="quick-btn" href="/attendance">Full attendance</a>
+  <a class="quick-btn" href="/calendar">Calendar</a>
+  <a class="quick-btn" href="/tasks">To-do</a>
+  <a class="quick-btn" href="/print/attendance/month?blank=1" target="_blank">Print this month</a>
+  <a class="quick-btn" href="/print/attendance/year?blank=1" target="_blank">Print year packet</a>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/desk.js?v=20260911a"></script>
 {% endblock %}

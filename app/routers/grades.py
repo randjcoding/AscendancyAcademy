@@ -13,6 +13,7 @@ from app.dependencies import first_student, render, require_student, require_tea
 from app.models import (
     Assignment,
     AssignmentStatus,
+    Book,
     CalendarEvent,
     Course,
     Enrollment,
@@ -22,6 +23,7 @@ from app.models import (
 )
 from app.security import verify_csrf
 from app.services import grades as grades_svc
+from app.services import pages as pages_svc
 
 router = APIRouter()
 
@@ -53,6 +55,7 @@ def gradebook(
                     joinedload(Enrollment.grades),
                     joinedload(Enrollment.course).joinedload(Course.assignments),
                     joinedload(Enrollment.course).joinedload(Course.categories),
+                    joinedload(Enrollment.course).joinedload(Course.books),
                     joinedload(Enrollment.course).joinedload(Course.school_year),
                 )
             )
@@ -60,7 +63,13 @@ def gradebook(
     grade_map = {g.assignment_id: g for g in (enrollment.grades if enrollment else [])}
     assignments = sorted(
         course.assignments,
-        key=lambda a: (a.due_date is None, a.due_date or date.max, a.id),
+        key=lambda a: (
+            a.due_date is None,
+            a.due_date or date.max,
+            a.page_start is None,
+            a.page_start or 0,
+            a.id,
+        ),
     )
     return render(
         request,
@@ -75,6 +84,7 @@ def gradebook(
         assignments=assignments,
         grade_map=grade_map,
         categories=course.categories,
+        books=course.books,
         error=request.query_params.get("error", ""),
         ok=request.query_params.get("ok", ""),
     )
@@ -87,51 +97,93 @@ def create_assignment(
     db: Session = Depends(get_db),
     user: User = Depends(require_teacher),
     csrf_token: str = Form(""),
-    title: str = Form(...),
-    category_id: int = Form(...),
+    title: str = Form(""),
+    category_id: int = Form(0),
     points_possible: float = Form(100),
     due_date: str = Form(""),
     description: str = Form(""),
     show_on_calendar: str = Form(""),
+    book_id: int = Form(0),
+    pages: str = Form(""),
+    has_work: str = Form(""),
+    bulk_pages: str = Form(""),
 ):
+    dest = f"/courses/{course_id}"
     if not verify_csrf(session_token(request), csrf_token):
-        return RedirectResponse(f"/courses/{course_id}?error=That+form+expired.", status_code=303)
+        return RedirectResponse(f"{dest}?error=That+form+expired.", status_code=303)
     course = db.get(Course, course_id)
-    category = db.get(GradeCategory, category_id)
-    name = title.strip()
-    if not course or not category or category.course_id != course.id or not name:
-        return RedirectResponse(f"/courses/{course_id}?error=Could+not+add+that+assignment.", status_code=303)
+    if not course:
+        return RedirectResponse("/courses", status_code=303)
     parsed_due = None
     if due_date.strip():
         try:
             parsed_due = date.fromisoformat(due_date.strip())
         except ValueError:
-            return RedirectResponse(f"/courses/{course_id}?error=That+due+date+is+not+valid.", status_code=303)
-    assignment = Assignment(
-        course_id=course.id,
-        category_id=category.id,
-        title=name,
-        description=description.strip(),
-        points_possible=max(points_possible, 0.01),
-        due_date=parsed_due,
-        show_on_calendar=bool(show_on_calendar),
-        status=AssignmentStatus.ASSIGNED,
-    )
-    db.add(assignment)
-    db.flush()
-    if assignment.show_on_calendar and assignment.due_date:
-        db.add(
-            CalendarEvent(
-                created_by_user_id=user.id,
-                assignment_id=assignment.id,
-                title=f"{course.title}: {assignment.title}",
-                description=assignment.description,
-                starts_at=datetime.combine(assignment.due_date, datetime.min.time()),
-                all_day=True,
+            return RedirectResponse(f"{dest}?error=That+due+date+is+not+valid.", status_code=303)
+    book = db.get(Book, book_id) if book_id else None
+    if book and book.course_id != course.id:
+        book = None
+    default_work = bool(has_work)
+    specs = pages_svc.parse_bulk(bulk_pages, default_has_work=default_work)
+    if not specs:
+        spec = pages_svc.parse_line(pages, default_has_work=default_work)
+        if spec:
+            specs = [spec]
+        elif title.strip():
+            specs = [pages_svc.PageSpec(pages="", page_start=None, has_work=default_work, extra="")]
+        else:
+            return RedirectResponse(f"{dest}?error=Add+pages+or+a+name.", status_code=303)
+    workish = any(s.has_work for s in specs)
+    category = db.get(GradeCategory, category_id) if category_id else None
+    if not category or category.course_id != course.id:
+        category = pages_svc.default_category(course, workish)
+    if not category:
+        return RedirectResponse(f"{dest}?error=This+class+needs+a+grade+category.", status_code=303)
+    if len(specs) == 1 and title.strip():
+        spec = specs[0]
+        assignment = Assignment(
+            course_id=course.id,
+            category_id=category.id,
+            title=title.strip(),
+            description=description.strip(),
+            points_possible=max(points_possible, 0.01) if spec.has_work else 0.0,
+            due_date=parsed_due,
+            show_on_calendar=bool(show_on_calendar),
+            book_id=book.id if book else None,
+            pages=spec.pages,
+            page_start=spec.page_start,
+            has_work=bool(spec.has_work),
+            status=AssignmentStatus.ASSIGNED,
+        )
+        db.add(assignment)
+        db.flush()
+        if assignment.show_on_calendar and assignment.due_date:
+            db.add(
+                CalendarEvent(
+                    created_by_user_id=user.id,
+                    assignment_id=assignment.id,
+                    title=f"{course.title}: {assignment.title}",
+                    description=assignment.description,
+                    starts_at=datetime.combine(assignment.due_date, datetime.min.time()),
+                    all_day=True,
+                )
             )
+        count = 1
+    else:
+        count = pages_svc.create_page_assignments(
+            db,
+            course=course,
+            user_id=user.id,
+            book=book,
+            specs=specs,
+            category=category,
+            due_date=parsed_due,
+            show_on_calendar=bool(show_on_calendar),
+            description=description,
         )
     db.commit()
-    return RedirectResponse(f"/courses/{course.id}?ok=Assignment+added.", status_code=303)
+    label = "assignment" if count == 1 else "assignments"
+    return RedirectResponse(f"{dest}?ok={count}+{label}+added.", status_code=303)
 
 
 @router.post("/courses/{course_id}/assignments/{assignment_id}/delete")

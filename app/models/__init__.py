@@ -208,6 +208,24 @@ class Course(Base):
     assignments: Mapped[list["Assignment"]] = relationship(
         back_populates="course", cascade="all, delete-orphan"
     )
+    books: Mapped[list["Book"]] = relationship(
+        back_populates="course", cascade="all, delete-orphan", order_by="Book.sort_order"
+    )
+
+
+class Book(Base):
+    __tablename__ = "books"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    author: Mapped[str] = mapped_column(String(160), default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    course: Mapped["Course"] = relationship(back_populates="books")
+    assignments: Mapped[list["Assignment"]] = relationship(back_populates="book")
 
 
 class CourseTeacher(Base):
@@ -263,6 +281,12 @@ class Assignment(Base):
     points_possible: Mapped[float] = mapped_column(Float, default=100)
     due_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, index=True)
     show_on_calendar: Mapped[bool] = mapped_column(Boolean, default=True)
+    book_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("books.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    pages: Mapped[str] = mapped_column(String(80), default="")
+    page_start: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    has_work: Mapped[bool] = mapped_column(Boolean, default=True)
     status: Mapped[AssignmentStatus] = mapped_column(
         _enum(AssignmentStatus, "assignment_status"), default=AssignmentStatus.ASSIGNED
     )
@@ -270,9 +294,19 @@ class Assignment(Base):
 
     course: Mapped["Course"] = relationship(back_populates="assignments")
     category: Mapped["GradeCategory"] = relationship(back_populates="assignments")
+    book: Mapped[Optional["Book"]] = relationship(back_populates="assignments")
     grades: Mapped[list["Grade"]] = relationship(
         back_populates="assignment", cascade="all, delete-orphan"
     )
+
+    @property
+    def page_label(self) -> str:
+        if not (self.pages or "").strip():
+            return ""
+        pages = self.pages.strip()
+        if "-" in pages or "," in pages:
+            return f"pp. {pages}"
+        return f"p. {pages}"
 
 
 class Grade(Base):

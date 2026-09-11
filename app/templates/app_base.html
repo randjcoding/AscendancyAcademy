@@ -9,7 +9,7 @@
   <button type="button" class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false">Menu</button>
   <nav class="topnav" id="topnav">
     {% if current_user and current_user.is_teacher %}
-    <a href="/teacher" class="{% if request.url.path == '/teacher' %}is-current{% endif %}">Home</a>
+    <a href="/teacher" class="{% if request.url.path == '/teacher' %}is-current{% endif %}">Desk</a>
     <a href="/attendance" class="{% if request.url.path.startswith('/attendance') %}is-current{% endif %}">Attendance</a>
     <a href="/courses" class="{% if request.url.path.startswith('/courses') %}is-current{% endif %}">Classes</a>
     <a href="/calendar" class="{% if request.url.path.startswith('/calendar') %}is-current{% endif %}">Calendar</a>

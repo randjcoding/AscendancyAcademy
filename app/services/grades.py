@@ -90,7 +90,11 @@ def course_result(db: Session, enrollment: Enrollment) -> CourseResult:
 
 def waiting_assignments(db: Session, enrollment: Enrollment) -> list[Assignment]:
     scored_ids = {g.assignment_id for g in enrollment.grades}
-    return [a for a in enrollment.course.assignments if a.id not in scored_ids]
+    return [
+        a
+        for a in enrollment.course.assignments
+        if a.has_work and a.id not in scored_ids
+    ]
 
 
 def grade_for(db: Session, enrollment_id: int, assignment_id: int) -> Grade | None:

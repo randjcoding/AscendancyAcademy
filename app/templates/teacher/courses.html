@@ -4,7 +4,7 @@
 <header class="page-head">
   <div>
     <h1>Classes</h1>
-    <p class="muted">Add a class, then drop in tests, quizzes, and assignments.</p>
+    <p class="muted">Add a class, then add its books so page assignments are easy.</p>
   </div>
 </header>
 
@@ -49,8 +49,11 @@
       {% else %}
       No scores yet
       {% endif %}
+      {% if course.books %}
+      · {{ course.books|length }} book{% if course.books|length != 1 %}s{% endif %}
+      {% endif %}
     </p>
-    <p><a class="btn btn--small" href="/courses/{{ course.id }}">Open gradebook</a></p>
+    <p><a class="btn btn--small" href="/courses/{{ course.id }}">Open class</a></p>
   </article>
   {% endfor %}
 </section>

@@ -10,16 +10,16 @@ from fastapi.staticfiles import StaticFiles
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.config import BASE_DIR, settings
-from app.database import Base, engine
 from app.routers import attendance, auth, calendar, courses, grades, home, print_views, settings as settings_router
 from app.routers import tasks, theme
 from app.seed import seed
+from app.services.schema import ensure_schema
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings.storage_path.mkdir(parents=True, exist_ok=True)
-    Base.metadata.create_all(bind=engine)
+    ensure_schema()
     seed()
     yield
 

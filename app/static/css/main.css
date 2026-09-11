@@ -157,8 +157,15 @@ p { margin: 0 0 0.8em; }
 .grade-big span { font-size: 1rem; color: var(--mute); }
 
 .hero-card { display: grid; grid-template-columns: 1.1fr 1fr; gap: 1.2rem; align-items: center; }
-.pill { display: inline-block; padding: 0.2rem 0.7rem; border-radius: 999px; background: var(--surface-2); }
+.pill { display: inline-block; padding: 0.2rem 0.7rem; border-radius: 999px; background: var(--surface-2); font-size: 0.85rem; }
 .pill--present { background: color-mix(in srgb, var(--present) 18%, var(--surface)); color: var(--present); font-weight: 700; }
+.pill--absent { background: color-mix(in srgb, var(--absent) 18%, var(--surface)); color: var(--absent); font-weight: 700; }
+.pill--excused { background: color-mix(in srgb, var(--excused) 18%, var(--surface)); color: var(--excused); font-weight: 700; }
+.pill--off { background: var(--surface-2); color: var(--off); font-weight: 700; }
+.pill--work { background: color-mix(in srgb, var(--gold) 22%, var(--surface)); }
+.attend-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.8rem 0 1rem; }
+.book-add { grid-template-columns: 1fr; margin-top: 0.7rem; }
+.book-add .input { margin-bottom: 0.35rem; }
 .quick-row { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0 0 1.2rem; }
 .quick-btn {
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
@@ -236,7 +243,7 @@ p { margin: 0 0 0.8em; }
 .calendar-host { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.8rem; min-height: 36rem; }
 
 @media (max-width: 800px) {
-  .form--grid, .split, .hero-card, .door-grid, .stat-row { grid-template-columns: 1fr; }
+  .form--grid, .split, .hero-card, .door-grid, .stat-row, .attend-actions { grid-template-columns: 1fr; }
   .nav-toggle { display: inline-flex; }
   .topnav, .topbar__actions { display: none; width: 100%; }
   .topbar.is-nav-open .topnav, .topbar.is-nav-open .topbar__actions { display: flex; }

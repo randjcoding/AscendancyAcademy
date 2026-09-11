@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies import first_student, render, require_teacher, session_token, teacher_profile
-from app.models import Course, CourseTeacher, Enrollment, GradeCategory, User
+from app.models import Book, Course, CourseTeacher, Enrollment, GradeCategory, User
 from app.security import verify_csrf
 from app.seed import COURSE_COLORS
 from app.services import attendance as attendance_svc
@@ -33,6 +33,7 @@ def course_list(
                 joinedload(Course.enrollments),
                 joinedload(Course.assignments),
                 joinedload(Course.categories),
+                joinedload(Course.books),
             )
             .order_by(Course.title.asc())
         ).unique().all()
@@ -113,3 +114,55 @@ def delete_course(
         db.delete(course)
         db.commit()
     return RedirectResponse("/courses?ok=Class+removed.", status_code=303)
+
+
+@router.post("/{course_id}/books")
+def add_book(
+    course_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_teacher),
+    csrf_token: str = Form(""),
+    title: str = Form(...),
+    author: str = Form(""),
+    notes: str = Form(""),
+    next: str = Form(""),
+):
+    dest = next if next.startswith("/") else f"/courses/{course_id}"
+    if not verify_csrf(session_token(request), csrf_token):
+        return RedirectResponse(f"{dest}?error=That+form+expired.", status_code=303)
+    course = db.get(Course, course_id)
+    name = title.strip()
+    if not course or not name:
+        return RedirectResponse(f"{dest}?error=Need+a+book+title.", status_code=303)
+    db.add(
+        Book(
+            course_id=course.id,
+            title=name,
+            author=author.strip(),
+            notes=notes.strip(),
+            sort_order=len(course.books),
+        )
+    )
+    db.commit()
+    return RedirectResponse(f"{dest}?ok=Book+added.", status_code=303)
+
+
+@router.post("/{course_id}/books/{book_id}/delete")
+def delete_book(
+    course_id: int,
+    book_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_teacher),
+    csrf_token: str = Form(""),
+    next: str = Form(""),
+):
+    dest = next if next.startswith("/") else f"/courses/{course_id}"
+    if not verify_csrf(session_token(request), csrf_token):
+        return RedirectResponse(f"{dest}?error=That+form+expired.", status_code=303)
+    book = db.get(Book, book_id)
+    if book and book.course_id == course_id:
+        db.delete(book)
+        db.commit()
+    return RedirectResponse(f"{dest}?ok=Book+removed.", status_code=303)
