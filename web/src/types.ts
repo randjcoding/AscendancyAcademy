@@ -13,6 +13,7 @@ export type User = {
   theme: string
   density: string
   list_view: string
+  phone?: string
   csrf: string
 }
 
@@ -51,6 +52,16 @@ export type Course = {
   percent: number | null
   letter: string | null
   book_count?: number
+  description?: string
+  schedule?: string
+  location?: string
+  grade_level?: string
+  credit_hours?: string
+  goals?: string
+  materials?: string
+  teacher_notes?: string
+  student_brief?: string
+  notes?: string
 }
 
 export type DayCell = {

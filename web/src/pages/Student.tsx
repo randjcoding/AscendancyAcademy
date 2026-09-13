@@ -83,6 +83,8 @@ export function StudentHome() {
         {data.courses.map((c) => (
           <article key={c.id} className="class-card" style={{ '--course': c.color } as CSSProperties}>
             <h2 className="wrap-any">{c.title}</h2>
+            {c.student_brief ? <p className="muted wrap-any">{c.student_brief}</p> : null}
+            {c.schedule ? <p className="muted">{c.schedule}{c.location ? ` · ${c.location}` : ''}</p> : null}
             <p className="grade-big">
               {c.letter || '—'} {c.percent != null ? <span>{c.percent}%</span> : null}
             </p>
@@ -119,6 +121,11 @@ export function StudentGrades() {
               {row.result.letter || '—'} {row.result.percent != null ? <span>{row.result.percent}%</span> : null}
             </p>
           </div>
+          {row.course.student_brief ? <p className="muted wrap-any">{row.course.student_brief}</p> : null}
+          {row.course.schedule || row.course.location ? (
+            <p className="muted">{[row.course.schedule, row.course.location].filter(Boolean).join(' · ')}</p>
+          ) : null}
+          {row.course.materials ? <p className="muted wrap-any">Bring: {row.course.materials}</p> : null}
           <div className="table-wrap">
             <table className="sheet">
               <thead>

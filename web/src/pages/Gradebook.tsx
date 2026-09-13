@@ -36,10 +36,26 @@ export function Gradebook() {
   const [pages, setPages] = useState('')
   const [due, setDue] = useState(new Date().toISOString().slice(0, 10))
   const [linkId, setLinkId] = useState(0)
+  const [tab, setTab] = useState<'about' | 'grades'>('about')
+  const [info, setInfo] = useState({
+    description: '', schedule: '', location: '', grade_level: '', credit_hours: '',
+    goals: '', materials: '', teacher_notes: '', student_brief: '',
+  })
 
   const load = async () => {
     const row = await api<Detail>(`/api/courses/${courseId}`)
     setData(row)
+    setInfo({
+      description: row.course.description || '',
+      schedule: row.course.schedule || '',
+      location: row.course.location || '',
+      grade_level: row.course.grade_level || '',
+      credit_hours: row.course.credit_hours || '',
+      goals: row.course.goals || '',
+      materials: row.course.materials || '',
+      teacher_notes: row.course.teacher_notes || '',
+      student_brief: row.course.student_brief || '',
+    })
   }
 
   useEffect(() => {
@@ -101,7 +117,46 @@ export function Gradebook() {
       </header>
       {error ? <div className="status status--error">{error}</div> : null}
       {ok ? <div className="status status--ok">{ok}</div> : null}
-
+      <div className="weight-toggle">
+        <button type="button" className={`btn btn--small ${tab === 'about' ? 'btn--primary' : ''}`} onClick={() => setTab('about')}>About this class</button>
+        <button type="button" className={`btn btn--small ${tab === 'grades' ? 'btn--primary' : ''}`} onClick={() => setTab('grades')}>Gradebook</button>
+      </div>
+      {tab === 'about' ? (
+        <section className="panel">
+          <h2>Class information</h2>
+          <p className="muted">What you and Gregory need to know besides scores.</p>
+          <form className="form form--grid" onSubmit={(e) => {
+            e.preventDefault()
+            if (!user) return
+            void postJson(`/api/courses/${courseId}/info`, { ...info, csrf: user.csrf }).then(() => {
+              setOk('Class information saved.')
+              void load()
+            }).catch((err) => setError(err instanceof ApiError ? err.message : 'Could not save that.'))
+          }}>
+            <label className="field span-2"><span className="field__label">What this class is</span>
+              <textarea className="input" rows={3} value={info.description} onChange={(e) => setInfo({ ...info, description: e.target.value })} /></label>
+            <label className="field"><span className="field__label">When we meet</span>
+              <input className="input" value={info.schedule} onChange={(e) => setInfo({ ...info, schedule: e.target.value })} placeholder="Mon / Wed mornings" /></label>
+            <label className="field"><span className="field__label">Where</span>
+              <input className="input" value={info.location} onChange={(e) => setInfo({ ...info, location: e.target.value })} placeholder="Kitchen table" /></label>
+            <label className="field"><span className="field__label">Grade level</span>
+              <input className="input" value={info.grade_level} onChange={(e) => setInfo({ ...info, grade_level: e.target.value })} /></label>
+            <label className="field"><span className="field__label">Credit</span>
+              <input className="input" value={info.credit_hours} onChange={(e) => setInfo({ ...info, credit_hours: e.target.value })} placeholder="1" /></label>
+            <label className="field span-2"><span className="field__label">Goals</span>
+              <textarea className="input" rows={3} value={info.goals} onChange={(e) => setInfo({ ...info, goals: e.target.value })} /></label>
+            <label className="field span-2"><span className="field__label">Materials</span>
+              <textarea className="input" rows={3} value={info.materials} onChange={(e) => setInfo({ ...info, materials: e.target.value })} /></label>
+            <label className="field span-2"><span className="field__label">Notes for Gregory</span>
+              <textarea className="input" rows={3} value={info.student_brief} onChange={(e) => setInfo({ ...info, student_brief: e.target.value })} /></label>
+            <label className="field span-2"><span className="field__label">Private teacher notes</span>
+              <textarea className="input" rows={3} value={info.teacher_notes} onChange={(e) => setInfo({ ...info, teacher_notes: e.target.value })} /></label>
+            <div className="span-2"><button type="submit" className="btn btn--primary">Save class info</button></div>
+          </form>
+        </section>
+      ) : null}
+      {tab === 'grades' ? (
+      <>
       <section className="panel">
         <h2>Add pages</h2>
         <form className="form form--grid" onSubmit={(e) => void addPages(e)}>
@@ -184,6 +239,8 @@ export function Gradebook() {
           </tbody>
         </table>
       </div>
+      </>
+      ) : null}
     </>
   )
 }

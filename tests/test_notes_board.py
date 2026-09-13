@@ -195,6 +195,101 @@ def test_reminder_compose_drops_completed():
         db.close()
 
 
+def test_box_save_409_keeps_server_copy():
+    with TestClient(app) as client:
+        joe = _joe(client)
+        tree = client.get("/api/notes/tree").json()["notebooks"]
+        personal = next(b for b in tree if b["scope"] == ShareScope.PERSONAL)
+        created = client.post(
+            "/api/notes/pages",
+            json={"notebook_id": personal["id"], "title": "Boxes", "csrf": joe["csrf"]},
+        )
+        page_id = created.json()["page"]["id"]
+        page = client.get(f"/api/notes/pages/{page_id}").json()
+        box = page["boxes"][0]
+        ok = client.post(
+            f"/api/notes/boxes/{box['id']}",
+            json={"csrf": joe["csrf"], "revision": box["revision"], "body_html": "<p>keep</p>"},
+        )
+        assert ok.status_code == 200, ok.text
+        clash = client.post(
+            f"/api/notes/boxes/{box['id']}",
+            json={"csrf": joe["csrf"], "revision": box["revision"], "body_html": "<p>wipe</p>"},
+        )
+        assert clash.status_code == 409
+        again = client.get(f"/api/notes/pages/{page_id}").json()["boxes"][0]
+        assert "keep" in (again["body_html"] or "")
+        assert "wipe" not in (again["body_html"] or "")
+
+
+def test_teacher_can_hide_or_share_a_page():
+    with TestClient(app) as client:
+        joe = _joe(client)
+        tree = client.get("/api/notes/tree").json()["notebooks"]
+        personal = next(b for b in tree if b["scope"] == ShareScope.PERSONAL)
+        created = client.post(
+            "/api/notes/pages",
+            json={"notebook_id": personal["id"], "title": "Share me", "csrf": joe["csrf"]},
+        )
+        page_id = created.json()["page"]["id"]
+        shared = client.post(
+            f"/api/notes/pages/{page_id}/share",
+            json={"scope": "school", "csrf": joe["csrf"]},
+        )
+        assert shared.status_code == 200, shared.text
+        greg = _greg(client)
+        assert client.get(f"/api/notes/pages/{page_id}").status_code == 200
+        titles = [p["title"] for nb in client.get("/api/notes/tree").json()["notebooks"] for p in nb["pages"]]
+        assert "Share me" in titles
+        joe = _joe(client)
+        hidden = client.post(
+            f"/api/notes/pages/{page_id}/share",
+            json={"scope": "personal", "csrf": joe["csrf"]},
+        )
+        assert hidden.status_code == 200
+        _greg(client)
+        assert client.get(f"/api/notes/pages/{page_id}").status_code == 403
+
+
+def test_course_info_csrf_and_student_cannot_see_teacher_notes():
+    with TestClient(app) as client:
+        joe = _joe(client)
+        course = client.post("/api/courses", json={"title": f"Info {house_now().strftime('%H%M%S%f')}", "csrf": joe["csrf"]})
+        assert course.status_code == 200
+        course_id = course.json()["id"]
+        denied = client.post(
+            f"/api/courses/{course_id}/info",
+            json={"student_brief": "Read ch 2", "teacher_notes": "quiz Friday"},
+        )
+        assert denied.status_code == 403
+        saved = client.post(
+            f"/api/courses/{course_id}/info",
+            json={
+                "csrf": joe["csrf"],
+                "student_brief": "Read chapter 2",
+                "teacher_notes": "quiz Friday",
+                "schedule": "Mon mornings",
+            },
+        )
+        assert saved.status_code == 200, saved.text
+        teacher_view = client.get(f"/api/courses/{course_id}").json()["course"]
+        assert teacher_view["teacher_notes"] == "quiz Friday"
+        greg = _greg(client)
+        home = client.get("/api/student").json()
+        row = next(c for c in home["courses"] if c["id"] == course_id)
+        assert row["student_brief"] == "Read chapter 2"
+        assert row["schedule"] == "Mon mornings"
+        assert "teacher_notes" not in row
+
+
+def test_student_cannot_open_ai_usage():
+    with TestClient(app) as client:
+        _greg(client)
+        assert client.get("/api/usage").status_code == 403
+        _joe(client)
+        assert client.get("/api/usage").status_code == 200
+
+
 def test_board_today_includes_overdue_excludes_tomorrow():
     with TestClient(app) as client:
         joe = _joe(client)

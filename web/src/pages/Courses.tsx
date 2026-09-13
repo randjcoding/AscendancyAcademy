@@ -57,7 +57,7 @@ export function Courses() {
       <header className="page-head">
         <div>
           <h1>Classes</h1>
-          <p className="muted">Add a class, then open it to score work.</p>
+          <p className="muted">Add a class, then open it to write what you need to know and score work.</p>
         </div>
         <div className="page-head__actions">
           <div className="view-toggle">
@@ -80,6 +80,7 @@ export function Courses() {
             <thead>
               <tr>
                 <th>Class</th>
+                <th>When</th>
                 <th>Grade</th>
                 <th>Books</th>
               </tr>
@@ -89,7 +90,9 @@ export function Courses() {
                 <tr key={c.id}>
                   <td className="wrap-text">
                     <Link to={`/courses/${c.id}`}>{c.title}</Link>
+                    {c.student_brief ? <div className="muted wrap-any">{c.student_brief}</div> : null}
                   </td>
+                  <td className="wrap-text">{c.schedule || '—'}</td>
                   <td>{c.letter ? `${c.letter} ${c.percent ?? ''}` : '—'}</td>
                   <td>{c.book_count ?? c.books.length}</td>
                 </tr>
@@ -102,12 +105,14 @@ export function Courses() {
           {courses.map((c) => (
             <article key={c.id} className="class-card" style={{ '--course': c.color } as CSSProperties}>
               <h2 className="wrap-any">{c.title}</h2>
+              {c.schedule ? <p className="muted">{c.schedule}{c.location ? ` · ${c.location}` : ''}</p> : null}
+              {c.student_brief ? <p className="muted wrap-any">{c.student_brief}</p> : null}
               <p className="grade-big">
                 {c.letter || '—'} {c.percent != null ? <span>{c.percent}%</span> : null}
               </p>
               <p>
                 <Link className="btn btn--primary" to={`/courses/${c.id}`}>
-                  Open gradebook
+                  Open class
                 </Link>
               </p>
               <p>

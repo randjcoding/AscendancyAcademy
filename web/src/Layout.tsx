@@ -85,7 +85,7 @@ export function Layout() {
                 Documents
               </NavLink>
               <NavLink to="/usage" className={({ isActive }) => (isActive ? 'is-current' : '')}>
-                Usage
+                AI Usage
               </NavLink>
               {user.can_manage_people ? (
                 <NavLink to="/people" className={({ isActive }) => (isActive ? 'is-current' : '')}>

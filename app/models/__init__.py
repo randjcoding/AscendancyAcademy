@@ -96,6 +96,7 @@ class User(Base):
     theme_preference: Mapped[str] = mapped_column(String(20), default="ascendancy")
     density_preference: Mapped[str] = mapped_column(String(20), default="cozy")
     list_view_preference: Mapped[str] = mapped_column(String(20), default="cards")
+    phone: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
     failed_login_count: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -236,6 +237,15 @@ class Course(Base):
     title: Mapped[str] = mapped_column(String(160))
     color: Mapped[str] = mapped_column(String(16), default="#2D6A4F")
     notes: Mapped[str] = mapped_column(Text, default="")
+    description: Mapped[str] = mapped_column(Text, default="")
+    schedule: Mapped[str] = mapped_column(String(255), default="")
+    location: Mapped[str] = mapped_column(String(160), default="")
+    grade_level: Mapped[str] = mapped_column(String(80), default="")
+    credit_hours: Mapped[str] = mapped_column(String(40), default="")
+    goals: Mapped[str] = mapped_column(Text, default="")
+    materials: Mapped[str] = mapped_column(Text, default="")
+    teacher_notes: Mapped[str] = mapped_column(Text, default="")
+    student_brief: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     school_year: Mapped["SchoolYear"] = relationship(back_populates="courses")
@@ -492,6 +502,7 @@ class Notebook(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(160))
+    color: Mapped[str] = mapped_column(String(16), default="#d4b44a")
     scope: Mapped[str] = mapped_column(String(16), default=ShareScope.PERSONAL, index=True)
     owner_user_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
@@ -500,6 +511,7 @@ class Notebook(Base):
         ForeignKey("courses.id", ondelete="CASCADE"), nullable=True, index=True
     )
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -515,6 +527,7 @@ class NoteSection(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     notebook_id: Mapped[int] = mapped_column(ForeignKey("notebooks.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(160), default="Pages")
+    color: Mapped[str] = mapped_column(String(16), default="#2d6a4f")
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -557,6 +570,31 @@ class NotePage(Base):
     history: Mapped[list["NoteHistory"]] = relationship(
         back_populates="page", cascade="all, delete-orphan"
     )
+    boxes: Mapped[list["NoteBox"]] = relationship(
+        back_populates="page", cascade="all, delete-orphan", order_by="NoteBox.z"
+    )
+
+
+class NoteBox(Base):
+    __tablename__ = "note_boxes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    page_id: Mapped[int] = mapped_column(ForeignKey("note_pages.id", ondelete="CASCADE"), index=True)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+    x: Mapped[int] = mapped_column(Integer, default=40)
+    y: Mapped[int] = mapped_column(Integer, default=24)
+    w: Mapped[int] = mapped_column(Integer, default=720)
+    h: Mapped[int] = mapped_column(Integer, default=160)
+    z: Mapped[int] = mapped_column(Integer, default=1)
+    bg: Mapped[str] = mapped_column(Text, default="")
+    body_html: Mapped[str] = mapped_column(Text, default="")
+    body_json: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    page: Mapped["NotePage"] = relationship(back_populates="boxes")
 
 
 class NoteHistory(Base):
@@ -593,6 +631,8 @@ class ReminderJob(Base):
     body: Mapped[str] = mapped_column(Text, default="")
     recipient: Mapped[str] = mapped_column(String(255), default="")
     audience: Mapped[str] = mapped_column(String(16), default="personal")
+    channel: Mapped[str] = mapped_column(String(16), default="email")
+    sms_to: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     recurrence: Mapped[str] = mapped_column(String(32), default="")
     recurrence_json: Mapped[str] = mapped_column(Text, default="")
     repeat_until: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
@@ -600,6 +640,7 @@ class ReminderJob(Base):
     status: Mapped[str] = mapped_column(String(16), default=ReminderStatus.PENDING, index=True)
     last_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     email_delivered_for: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    sms_delivered_for: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     items: Mapped[list["ReminderItem"]] = relationship(

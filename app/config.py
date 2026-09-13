@@ -73,6 +73,14 @@ class Settings(BaseSettings):
     mail_from_name: str = "Ascendancy Academy"
     reminder_job_token: str = ""
 
+    sms_enabled: bool = False
+    sms_provider: str = "email"
+    sms_from: str = ""
+    sms_default_to: str = ""
+    sms_email_to: str = ""
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+
     @property
     def mail_from_address(self) -> str:
         return (self.smtp_from or self.smtp_user or "").strip()

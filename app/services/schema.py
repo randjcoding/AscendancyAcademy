@@ -121,6 +121,43 @@ def ensure_schema() -> None:
             ddl="role VARCHAR(20) DEFAULT 'teacher'",
             adds=adds,
         )
+        _add_if_missing(cols=cols, table="users", name="phone", ddl="phone VARCHAR(32)", adds=adds)
+
+    if "notebooks" in tables:
+        cols = {c["name"] for c in insp.get_columns("notebooks")}
+        _add_if_missing(cols=cols, table="notebooks", name="color", ddl="color VARCHAR(16) DEFAULT '#d4b44a'", adds=adds)
+        _add_if_missing(
+            cols=cols,
+            table="notebooks",
+            name="archived",
+            ddl=f"archived BOOLEAN DEFAULT {bool_false}",
+            adds=adds,
+        )
+
+    if "note_sections" in tables:
+        cols = {c["name"] for c in insp.get_columns("note_sections")}
+        _add_if_missing(cols=cols, table="note_sections", name="color", ddl="color VARCHAR(16) DEFAULT '#2d6a4f'", adds=adds)
+
+    if "courses" in tables:
+        cols = {c["name"] for c in insp.get_columns("courses")}
+        for name, ddl in (
+            ("description", "description TEXT DEFAULT ''"),
+            ("schedule", "schedule VARCHAR(255) DEFAULT ''"),
+            ("location", "location VARCHAR(160) DEFAULT ''"),
+            ("grade_level", "grade_level VARCHAR(80) DEFAULT ''"),
+            ("credit_hours", "credit_hours VARCHAR(40) DEFAULT ''"),
+            ("goals", "goals TEXT DEFAULT ''"),
+            ("materials", "materials TEXT DEFAULT ''"),
+            ("teacher_notes", "teacher_notes TEXT DEFAULT ''"),
+            ("student_brief", "student_brief TEXT DEFAULT ''"),
+        ):
+            _add_if_missing(cols=cols, table="courses", name=name, ddl=ddl, adds=adds)
+
+    if "reminder_jobs" in tables:
+        cols = {c["name"] for c in insp.get_columns("reminder_jobs")}
+        _add_if_missing(cols=cols, table="reminder_jobs", name="channel", ddl="channel VARCHAR(16) DEFAULT 'email'", adds=adds)
+        _add_if_missing(cols=cols, table="reminder_jobs", name="sms_to", ddl="sms_to VARCHAR(32)", adds=adds)
+        _add_if_missing(cols=cols, table="reminder_jobs", name="sms_delivered_for", ddl="sms_delivered_for DATETIME", adds=adds)
 
     if "tasks" in tables:
         cols = {c["name"] for c in insp.get_columns("tasks")}

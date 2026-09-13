@@ -23,7 +23,7 @@ export function Usage() {
     <>
       <header className="page-head">
         <div>
-          <h1>Usage</h1>
+          <h1>AI Usage</h1>
           <p className="muted">{label} · ${total.toFixed(3)} logged</p>
         </div>
       </header>

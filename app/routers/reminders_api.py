@@ -20,7 +20,7 @@ from app.services.reminder_compose import verify_stop_token
 from app.services.reminders import deliver_reminder
 
 router = APIRouter(prefix="/api/reminders")
-ITEM_TYPES = {"task", "page", "event", "text"}
+ITEM_TYPES = {"task", "page", "event", "text", "container"}
 
 
 class ItemIn(BaseModel):
@@ -34,6 +34,8 @@ class ReminderBody(BaseModel):
     name: str = ""
     send_at: str = ""
     audience: str = "personal"
+    channel: str = "email"
+    sms_to: str = ""
     repeat_kind: str = "none"
     repeat_until: str = ""
     repeat_days: list[str] = []
@@ -65,6 +67,8 @@ def _job_json(job: ReminderJob) -> dict:
         "name": job.name or job.subject or "Reminder",
         "send_at": job.send_at.isoformat(timespec="minutes") if job.send_at else "",
         "audience": job.audience or "personal",
+        "channel": job.channel or "email",
+        "sms_to": job.sms_to or "",
         "status": job.status,
         "repeat": describe_rule(rule),
         "repeat_kind": job.recurrence or "none",
@@ -101,6 +105,8 @@ def _fill_job(job: ReminderJob, body: ReminderBody, user: User) -> str | None:
     job.subject = name
     job.send_at = when
     job.audience = "family" if body.audience == "family" and user.is_teacher else "personal"
+    job.channel = body.channel if body.channel in {"email", "sms", "both"} else "email"
+    job.sms_to = (body.sms_to or user.phone or "").strip() or None
     job.recipient = user.email
     if not job.series_start:
         job.series_start = when
@@ -205,6 +211,26 @@ def stop_reminder(id: int = 0, token: str = "", db: Session = Depends(get_db)):
     job.status = ReminderStatus.CANCELLED
     db.commit()
     return RedirectResponse("/reminders?stopped=1", status_code=303)
+
+
+@router.post("/ping")
+def ping_channels(body: CsrfBody, request: Request, db: Session = Depends(get_db)):
+    user = _must_user(request, db)
+    if isinstance(user, JSONResponse):
+        return user
+    if _csrf_bad(request, body.csrf):
+        return _err("That form expired.", 403)
+    from app.services.email import send_email
+    from app.services.sms import send_sms
+
+    email_ok = send_email(
+        to=user.email,
+        subject="Ascendancy reminder test",
+        text_body="This is a test from Ascendancy Academy. Email is working.",
+        html_body="<p>This is a test from Ascendancy Academy. Email is working.</p>",
+    )
+    sms_ok = send_sms(to=user.phone or "", body="AA test: text reminders are working. Off: see Reminders.")
+    return {"ok": bool(email_ok or sms_ok), "email": email_ok, "sms": sms_ok}
 
 
 @router.post("/internal/run")

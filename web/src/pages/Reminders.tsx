@@ -37,6 +37,8 @@ export function Reminders() {
   const [repeat, setRepeat] = useState('none')
   const [until, setUntil] = useState('')
   const [audience, setAudience] = useState('personal')
+  const [channel, setChannel] = useState('email')
+  const [smsTo, setSmsTo] = useState(user?.phone || '')
   const [note, setNote] = useState('')
   const [taskId, setTaskId] = useState(0)
   const [pageId, setPageId] = useState(0)
@@ -60,6 +62,12 @@ export function Reminders() {
     load().catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load reminders.'))
   }, [])
 
+  useEffect(() => {
+    const item = Number(params.get('item') || 0)
+    if (params.get('attach') === 'page' && item) setPageId(item)
+    if (params.get('attach') === 'task' && item) setTaskId(item)
+  }, [params])
+
   const add = async (e: FormEvent) => {
     e.preventDefault()
     if (!user) return
@@ -71,6 +79,8 @@ export function Reminders() {
         repeat_kind: repeat,
         repeat_until: until,
         audience,
+        channel,
+        sms_to: smsTo,
         items: [
           ...(note.trim() ? [{ item_type: 'text', text: note }] : []),
           ...(taskId ? [{ item_type: 'task', item_id: taskId }] : []),
@@ -92,7 +102,7 @@ export function Reminders() {
       <header className="page-head">
         <div>
           <h1>Reminders</h1>
-          <p className="muted">Email yourself, or the whole family. Checked boxes are left out of the message.</p>
+          <p className="muted">Email, text, or both. Checked boxes are left out of the message.</p>
         </div>
       </header>
       {error ? <div className="status status--error">{error}</div> : null}
@@ -117,6 +127,18 @@ export function Reminders() {
         <label className="field">
           <span className="field__label">Until</span>
           <input className="input" type="date" value={until} onChange={(e) => setUntil(e.target.value)} />
+        </label>
+        <label className="field">
+          <span className="field__label">How to send</span>
+          <select className="input" value={channel} onChange={(e) => setChannel(e.target.value)}>
+            <option value="email">Email</option>
+            <option value="sms">Text</option>
+            <option value="both">Email and text</option>
+          </select>
+        </label>
+        <label className="field">
+          <span className="field__label">Text number</span>
+          <input className="input" value={smsTo} onChange={(e) => setSmsTo(e.target.value)} placeholder="Same as Profile if blank" />
         </label>
         {canFamily ? (
           <label className="field">
@@ -151,6 +173,9 @@ export function Reminders() {
         </label>
         <div className="span-2">
           <button type="submit" className="btn btn--primary">Save reminder</button>
+          <button type="button" className="btn" onClick={() => user && void postJson<{ email: boolean; sms: boolean }>('/api/reminders/ping', { csrf: user.csrf }).then((r) => setOk(`Test sent. Email ${r.email ? 'ok' : 'failed'}, text ${r.sms ? 'ok' : 'failed'}.`))}>
+            Send a test now
+          </button>
         </div>
       </form>
       <ul className="task-list">

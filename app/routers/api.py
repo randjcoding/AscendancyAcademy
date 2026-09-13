@@ -101,6 +101,7 @@ def _user_json(user: User, request: Request) -> dict:
         "is_teacher": user.is_teacher,
         "is_student": user.is_student,
         "can_manage_people": user.can_manage_people,
+        "phone": getattr(user, "phone", None) or "",
         "must_change_password": user.must_change_password,
         "theme": user.theme_preference or "ascendancy",
         "density": user.density_preference or "cozy",
@@ -164,6 +165,28 @@ class CourseBody(BaseModel):
     assignments_weight: float = 25
     other_weight: float = 25
     csrf: str = ""
+
+
+class CourseInfoBody(BaseModel):
+    csrf: str = ""
+    title: str = ""
+    color: str = ""
+    description: str = ""
+    schedule: str = ""
+    location: str = ""
+    grade_level: str = ""
+    credit_hours: str = ""
+    goals: str = ""
+    materials: str = ""
+    teacher_notes: str = ""
+    student_brief: str = ""
+    notes: str = ""
+
+
+class PhoneBody(BaseModel):
+    csrf: str = ""
+    phone: str = ""
+    user_id: int = 0
 
 
 class BookBody(BaseModel):
@@ -308,6 +331,26 @@ async def api_login(body: LoginBody, request: Request, db: Session = Depends(get
         domain=settings.cookie_domain or None,
     )
     return resp
+
+
+@router.post("/profile/phone")
+def api_set_phone(body: PhoneBody, request: Request, db: Session = Depends(get_db)):
+    user = _must_user(request, db)
+    if isinstance(user, JSONResponse):
+        return user
+    if _csrf_bad(request, body.csrf):
+        return _err("That form expired.", 403)
+    target = user
+    if body.user_id and body.user_id != user.id:
+        if not user.can_manage_people:
+            return _err("Admin required", 403)
+        target = db.get(User, body.user_id)
+        if not target:
+            return _err("Person not found")
+    target.phone = (body.phone or "").strip()[:32]
+    db.add(target)
+    db.commit()
+    return {"ok": True, "phone": target.phone or ""}
 
 
 @router.post("/logout")
@@ -470,8 +513,8 @@ def api_desk(request: Request, db: Session = Depends(get_db)):
     }
 
 
-def _course_json_simple(course: Course, result=None) -> dict:
-    return {
+def _course_json_simple(course: Course, result=None, *, for_student: bool = False) -> dict:
+    data = {
         "id": course.id,
         "title": course.title,
         "color": course.color,
@@ -480,7 +523,20 @@ def _course_json_simple(course: Course, result=None) -> dict:
         "percent": getattr(result, "percent", None),
         "letter": getattr(result, "letter", None),
         "book_count": len(course.books),
+        "description": getattr(course, "description", "") or "",
+        "schedule": getattr(course, "schedule", "") or "",
+        "location": getattr(course, "location", "") or "",
+        "grade_level": getattr(course, "grade_level", "") or "",
+        "credit_hours": getattr(course, "credit_hours", "") or "",
+        "goals": getattr(course, "goals", "") or "",
+        "materials": getattr(course, "materials", "") or "",
+        "teacher_notes": getattr(course, "teacher_notes", "") or "",
+        "student_brief": getattr(course, "student_brief", "") or "",
+        "notes": course.notes or "",
     }
+    if for_student:
+        data.pop("teacher_notes", None)
+    return data
 
 
 @router.get("/courses")
@@ -551,6 +607,37 @@ def api_create_course(body: CourseBody, request: Request, db: Session = Depends(
         db.add(GradeCategory(course_id=course.id, name=cat_name, weight=weight, sort_order=order))
     db.commit()
     return {"ok": True, "id": course.id}
+
+
+@router.post("/courses/{course_id}/info")
+def api_course_info(course_id: int, body: CourseInfoBody, request: Request, db: Session = Depends(get_db)):
+    user = _must_user(request, db)
+    if isinstance(user, JSONResponse):
+        return user
+    if not user.is_teacher:
+        return _err("Teacher required", 403)
+    if _csrf_bad(request, body.csrf):
+        return _err("That form expired.", 403)
+    course = db.get(Course, course_id)
+    if not course:
+        return _err("Class not found", 404)
+    if body.title.strip():
+        course.title = body.title.strip()[:160]
+    if body.color.strip():
+        course.color = body.color.strip()[:16]
+    course.description = body.description
+    course.schedule = body.schedule[:255]
+    course.location = body.location[:160]
+    course.grade_level = body.grade_level[:80]
+    course.credit_hours = body.credit_hours[:40]
+    course.goals = body.goals
+    course.materials = body.materials
+    course.teacher_notes = body.teacher_notes
+    course.student_brief = body.student_brief
+    if body.notes:
+        course.notes = body.notes
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/courses/{course_id}")
@@ -1220,6 +1307,8 @@ def api_usage(request: Request, db: Session = Depends(get_db)):
     user = _must_user(request, db)
     if isinstance(user, JSONResponse):
         return user
+    if not user.is_teacher:
+        return _err("Teacher required", 403)
     from app.services import ai_usage as usage_svc
 
     rows = usage_svc.month_rows(db)
@@ -1253,7 +1342,7 @@ def api_people(request: Request, db: Session = Depends(get_db)):
     people = db.scalars(select(User).order_by(User.first_name)).all()
     return {
         "people": [
-            {"id": p.id, "name": p.full_name, "email": p.email, "role": getattr(p, "role", ""), "kind": p.kind.value}
+            {"id": p.id, "name": p.full_name, "email": p.email, "phone": getattr(p, "phone", None) or "", "role": getattr(p, "role", ""), "kind": p.kind.value}
             for p in people
         ]
     }
@@ -1307,7 +1396,7 @@ def api_student_home(request: Request, db: Session = Depends(get_db)):
         ).unique().all()
         for enrollment in enrollments:
             result = grades_svc.course_result(db, enrollment)
-            courses.append(_course_json_simple(enrollment.course, result))
+            courses.append(_course_json_simple(enrollment.course, result, for_student=True))
         due = [
             {
                 "title": a.title,
@@ -1381,7 +1470,7 @@ def api_student_grades(request: Request, db: Session = Depends(get_db)):
         )
         rows.append(
             {
-                "course": _course_json_simple(enrollment.course, result),
+                "course": _course_json_simple(enrollment.course, result, for_student=True),
                 "result": {
                     "percent": result.percent if result else None,
                     "letter": result.letter if result else None,

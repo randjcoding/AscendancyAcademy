@@ -1,10 +1,12 @@
 """Notebook defaults, page depth, and history snapshots."""
 from __future__ import annotations
 
+import json
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Course, NoteHistory, NotePage, NoteSection, Notebook, ShareScope, User
+from app.models import Course, NoteBox, NoteHistory, NotePage, NoteSection, Notebook, ShareScope, User
 from app.services.clock import house_now
 from app.services.text import html_to_plain
 from app.services.visibility import class_ids_for, teacher_course_ids
@@ -128,12 +130,15 @@ def page_depth(db: Session, page: NotePage) -> int:
 
 
 def snapshot_page(db: Session, page: NotePage) -> None:
+    boxes = db.scalars(select(NoteBox).where(NoteBox.page_id == page.id).order_by(NoteBox.z, NoteBox.id)).all()
+    html = "\n".join(b.body_html or "" for b in boxes) or (page.body_html or "")
+    payload = json.dumps({"boxes": [box_json(b) for b in boxes]})
     db.add(
         NoteHistory(
             page_id=page.id,
             title=page.title,
-            body_html=page.body_html or "",
-            body_json=page.body_json or "",
+            body_html=html,
+            body_json=payload,
             created_at=house_now(),
         )
     )
@@ -153,3 +158,79 @@ def apply_body(page: NotePage, html: str, json_text: str = "") -> None:
     page.body_json = json_text or ""
     page.body_plain = html_to_plain(page.body_html)
     page.updated_at = house_now()
+
+
+def restore_boxes(db: Session, page: NotePage, snap: NoteHistory) -> None:
+    for box in db.scalars(select(NoteBox).where(NoteBox.page_id == page.id)).all():
+        db.delete(box)
+    db.flush()
+    rows = []
+    try:
+        data = json.loads(snap.body_json or "")
+        if isinstance(data, dict) and isinstance(data.get("boxes"), list):
+            rows = data["boxes"]
+    except json.JSONDecodeError:
+        rows = []
+    if not rows:
+        db.add(NoteBox(page_id=page.id, body_html=snap.body_html or "", updated_at=house_now()))
+        return
+    for row in rows:
+        db.add(
+            NoteBox(
+                page_id=page.id,
+                x=max(0, int(row.get("x") or 40)),
+                y=max(0, int(row.get("y") or 24)),
+                w=max(160, int(row.get("w") or 420)),
+                h=max(80, int(row.get("h") or 160)),
+                z=int(row.get("z") or 1),
+                bg=row.get("bg") or "",
+                body_html=row.get("body_html") or "",
+                body_json=row.get("body_json") or "",
+                revision=0,
+                updated_at=house_now(),
+            )
+        )
+
+
+def refresh_page_text(db: Session, page: NotePage) -> None:
+    boxes = db.scalars(select(NoteBox).where(NoteBox.page_id == page.id).order_by(NoteBox.z, NoteBox.id)).all()
+    html = "\n".join(b.body_html or "" for b in boxes) or (page.body_html or "")
+    apply_body(page, html, page.body_json)
+
+
+def ensure_boxes(db: Session, page: NotePage, *, kind: str = "note") -> list[NoteBox]:
+    boxes = db.scalars(select(NoteBox).where(NoteBox.page_id == page.id).order_by(NoteBox.z, NoteBox.id)).all()
+    if boxes:
+        return list(boxes)
+    starter = page.body_html or ""
+    if kind == "list" and not starter:
+        starter = '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p></p></li></ul>'
+    box = NoteBox(
+        page_id=page.id,
+        x=40,
+        y=24,
+        w=720,
+        h=200,
+        z=1,
+        body_html=starter,
+        revision=0,
+        updated_at=house_now(),
+    )
+    db.add(box)
+    db.flush()
+    return [box]
+
+
+def box_json(box: NoteBox) -> dict:
+    return {
+        "id": box.id,
+        "revision": box.revision,
+        "x": box.x,
+        "y": box.y,
+        "w": box.w,
+        "h": box.h,
+        "z": box.z,
+        "bg": box.bg or "",
+        "body_html": box.body_html or "",
+        "body_json": box.body_json or "",
+    }

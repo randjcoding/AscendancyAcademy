@@ -4,7 +4,7 @@ import { api, ApiError, postJson } from '../api'
 import { useAuth } from '../Auth'
 import { Modal } from '../ui/Modal'
 
-type Person = { id: number; name: string; email: string; role: string; kind: string }
+type Person = { id: number; name: string; email: string; phone: string; role: string; kind: string }
 
 export function People() {
   const { user } = useAuth()
@@ -51,6 +51,7 @@ export function People() {
           <article key={p.id} className="item-card">
             <h3 className="wrap-any">{p.name}</h3>
             <p className="muted wrap-any">{p.email}</p>
+            <p className="muted">{p.phone || 'No phone yet'}</p>
             <p className="muted">{p.role || p.kind}</p>
             <button type="button" className="btn" onClick={() => setTarget(p)}>
               Reset password

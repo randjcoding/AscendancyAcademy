@@ -1,4 +1,4 @@
-"""Due reminder processing (email only)."""
+"""Due reminder processing (email and SMS)."""
 from __future__ import annotations
 
 import logging
@@ -11,8 +11,15 @@ from app.services.clock import house_now
 from app.services.email import send_email
 from app.services.recurrence import next_occurrence, rule_from_job
 from app.services.reminder_compose import compose
+from app.services.sms import send_sms
 
 logger = logging.getLogger("aa.reminders")
+VALID_CHANNELS = {"email", "sms", "both"}
+
+
+def normalize_channel(raw: str | None) -> str:
+    channel = (raw or "email").lower().strip()
+    return channel if channel in VALID_CHANNELS else "email"
 
 
 def family_emails(db: Session) -> list[str]:
@@ -20,11 +27,23 @@ def family_emails(db: Session) -> list[str]:
     return [u.email for u in rows if (u.email or "").strip()]
 
 
-def _recipients(db: Session, job: ReminderJob, user: User | None) -> list[str]:
+def family_phones(db: Session) -> list[str]:
+    rows = db.scalars(select(User).where(User.status == AccountStatus.ACTIVE)).all()
+    return [u.phone for u in rows if (getattr(u, "phone", None) or "").strip()]
+
+
+def _email_recipients(db: Session, job: ReminderJob, user: User | None) -> list[str]:
     if (job.audience or "personal") == "family":
         return family_emails(db)
     dest = (job.recipient or (user.email if user else "") or "").strip()
     return [dest] if dest else []
+
+
+def _sms_dest(db: Session, job: ReminderJob, user: User | None) -> str:
+    if (job.audience or "personal") == "family":
+        phones = family_phones(db)
+        return phones[0] if phones else (job.sms_to or "")
+    return (job.sms_to or (user.phone if user else "") or "").strip()
 
 
 def _next_send(job: ReminderJob):
@@ -37,22 +56,33 @@ def _next_send(job: ReminderJob):
 
 def deliver_reminder(db: Session, job: ReminderJob, user: User | None, *, force: bool = False) -> bool:
     message = compose(db, job)
-    if not force and job.email_delivered_for == job.send_at:
-        return True
-    recipients = _recipients(db, job, user)
-    if not recipients:
-        return False
-    delivered = send_email(
-        to=recipients,
-        subject=message["subject"],
-        text_body=message["text"],
-        html_body=message["html"],
-    )
-    if delivered and not force:
-        job.email_delivered_for = job.send_at
-        db.add(job)
-        db.flush()
-    return delivered
+    channel = normalize_channel(job.channel)
+    ok = True
+    if channel in {"email", "both"} and (force or job.email_delivered_for != job.send_at):
+        recipients = _email_recipients(db, job, user)
+        if not recipients:
+            ok = False
+        else:
+            delivered = send_email(
+                to=recipients,
+                subject=message["subject"],
+                text_body=message["text"],
+                html_body=message["html"],
+            )
+            if delivered and not force:
+                job.email_delivered_for = job.send_at
+                db.add(job)
+                db.flush()
+            ok = delivered and ok
+    if channel in {"sms", "both"} and (force or job.sms_delivered_for != job.send_at):
+        dest = _sms_dest(db, job, user)
+        delivered = send_sms(to=dest, body=message.get("sms") or message["text"])
+        if delivered and not force:
+            job.sms_delivered_for = job.send_at
+            db.add(job)
+            db.flush()
+        ok = delivered and ok
+    return ok
 
 
 def process_due_reminders(db: Session) -> int:

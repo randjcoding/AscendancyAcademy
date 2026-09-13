@@ -10,7 +10,7 @@ from html.parser import HTMLParser
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models import CalendarEvent, NotePage, ReminderJob, Task, User
+from app.models import CalendarEvent, NoteBox, NotePage, ReminderJob, Task, User
 from app.services.text import html_to_plain
 from app.services.visibility import can_see_page, can_see_task
 
@@ -97,6 +97,10 @@ def item_allowed(db: Session, user: User | None, item_type: str, item_id: int | 
     if item_type == "page":
         page = db.get(NotePage, item_id) if item_id else None
         return bool(page and can_see_page(db, user, page))
+    if item_type == "container":
+        box = db.get(NoteBox, item_id) if item_id else None
+        page = db.get(NotePage, box.page_id) if box else None
+        return bool(page and can_see_page(db, user, page))
     if item_type == "event":
         ev = db.get(CalendarEvent, item_id) if item_id else None
         return bool(ev and not ev.deleted_at)
@@ -115,11 +119,12 @@ def _label_for(db: Session, item) -> dict | None:
         due = f" (due {task.due_at.strftime('%b %d %H:%M')})" if task.due_at else ""
         return {"title": f"[ ] {task.title}{due}", "lines": [], "url": _site("/tasks")}
 
-    if t == "page":
-        page = db.get(NotePage, item.item_id) if item.item_id else None
+    if t in {"page", "container"}:
+        box = db.get(NoteBox, item.item_id) if t == "container" and item.item_id else None
+        page = db.get(NotePage, box.page_id if box else item.item_id) if item.item_id and (t == "page" or box) else None
         if not page or page.deleted_at:
             return None
-        html = page.body_html or ""
+        html = (box.body_html if box else page.body_html) or ""
         open_items = unchecked_lines_from_html(html)
         page_url = _site(f"/notes/{page.id}")
         if open_items:
@@ -164,7 +169,8 @@ def compose(db: Session, reminder: ReminderJob) -> dict:
             f"<p><a href='{off}'>Turn this reminder off</a></p>"
             f"<p style='color:#888'>— Ascendancy Academy</p>"
         )
-        return {"subject": subject, "text": text, "html": html}
+        sms = f"AA: {subject}\n{_site('/reminders')}\nOff: {off}"
+        return {"subject": subject, "text": text, "html": html, "sms": sms}
 
     text_lines = [subject, ""]
     for p in parts:
@@ -193,4 +199,11 @@ def compose(db: Session, reminder: ReminderJob) -> dict:
         f"<p><a href='{off}'>Turn this reminder off</a></p>"
         "<p style='color:#888'>— Ascendancy Academy</p>"
     )
-    return {"subject": subject, "text": text, "html": "".join(html_parts)}
+    sms_lines = [f"AA: {subject}"]
+    for p in parts:
+        if p["url"]:
+            sms_lines.append(p["url"])
+        else:
+            sms_lines.append(p["title"][:60])
+    sms_lines.append(f"Off: {off}")
+    return {"subject": subject, "text": text, "html": "".join(html_parts), "sms": "\n".join(sms_lines)}
