@@ -1,55 +1,67 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 
 const MARK_SRC = '/mark.png'
 
-function paint(canvas: HTMLCanvasElement, image: HTMLImageElement) {
-  const css = getComputedStyle(canvas)
-  const box = canvas.getBoundingClientRect()
-  const width = Math.max(1, Math.round(box.width))
-  const height = Math.max(1, Math.round(box.height))
-  if (!width || !height || !image.naturalWidth) return
-  const dpr = window.devicePixelRatio || 1
-  canvas.width = Math.round(width * dpr)
-  canvas.height = Math.round(height * dpr)
+function inkRgb(color: string): [number, number, number] {
+  const m = color.match(/rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i)
+  if (!m) return [17, 17, 17]
+  return [Number(m[1]), Number(m[2]), Number(m[3])]
+}
+
+function tintMark(image: HTMLImageElement, color: string): string {
+  const canvas = document.createElement('canvas')
+  canvas.width = image.naturalWidth
+  canvas.height = image.naturalHeight
   const ctx = canvas.getContext('2d')
-  if (!ctx) return
-  ctx.clearRect(0, 0, canvas.width, canvas.height)
-  ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
-  ctx.globalCompositeOperation = 'source-in'
-  ctx.fillStyle = css.color || '#111'
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-  ctx.globalCompositeOperation = 'source-over'
+  if (!ctx) return MARK_SRC
+  ctx.drawImage(image, 0, 0)
+  const frame = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  const [r, g, b] = inkRgb(color)
+  const pix = frame.data
+  for (let i = 0; i < pix.length; i += 4) {
+    if (pix[i + 3] === 0) continue
+    pix[i] = r
+    pix[i + 1] = g
+    pix[i + 2] = b
+  }
+  ctx.putImageData(frame, 0, 0)
+  return canvas.toDataURL('image/png')
 }
 
 export function BrandMark() {
-  const ref = useRef<HTMLCanvasElement>(null)
+  const [src, setSrc] = useState('')
 
   useEffect(() => {
-    const canvas = ref.current
-    if (!canvas) return
+    const probe = document.createElement('span')
+    probe.className = 'brand__mon'
+    probe.style.position = 'absolute'
+    probe.style.visibility = 'hidden'
+    document.body.appendChild(probe)
+
     const image = new Image()
-    image.decoding = 'async'
     let alive = true
 
-    const redraw = () => {
-      if (alive && image.complete && image.naturalWidth) paint(canvas, image)
+    const paint = () => {
+      if (!alive || !image.naturalWidth) return
+      const color = getComputedStyle(probe).color || getComputedStyle(document.body).color
+      setSrc(tintMark(image, color))
     }
 
-    image.onload = redraw
+    image.onload = paint
     image.src = MARK_SRC
-    if (image.complete) redraw()
+    if (image.complete) paint()
 
-    const themeWatch = new MutationObserver(redraw)
-    themeWatch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
-    const sizeWatch = new ResizeObserver(redraw)
-    sizeWatch.observe(canvas)
+    const watch = new MutationObserver(paint)
+    watch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
 
     return () => {
       alive = false
-      themeWatch.disconnect()
-      sizeWatch.disconnect()
+      watch.disconnect()
+      probe.remove()
     }
   }, [])
 
-  return <canvas className="brand__mon" aria-hidden="true" ref={ref} />
+  if (!src) return <span className="brand__mon" aria-hidden="true" />
+
+  return <img className="brand__mon" src={src} alt="" draggable={false} />
 }

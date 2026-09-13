@@ -211,10 +211,10 @@ p { margin: 0 0 0.8em; }
 .brand__mon {
   display: block;
   flex: 0 0 auto;
-  width: 2.15rem;
-  height: 2.15rem;
+  width: 2.4rem;
+  height: 2.4rem;
   color: var(--ink);
-  overflow: visible;
+  object-fit: contain;
 }
 .brand__mark {
   display: inline-flex;
@@ -282,7 +282,8 @@ p { margin: 0 0 0.8em; }
   color: var(--ink); border-radius: 999px; padding: 0.45rem 0.95rem;
   font: inherit; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center;
 }
-.nav-toggle {
+.nav-toggle,
+button.nav-toggle {
   display: none;
   flex: 0 0 auto;
   min-width: 4.6rem;
