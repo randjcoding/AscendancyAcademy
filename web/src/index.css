@@ -211,9 +211,8 @@ p { margin: 0 0 0.8em; }
 .brand__mon {
   display: block;
   flex: 0 0 auto;
-  width: 2.4rem;
-  height: 2.4rem;
-  color: var(--ink);
+  width: 2.6rem;
+  height: 2.6rem;
   object-fit: contain;
 }
 .brand__mark {
