@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api'
+import { Board } from '../ui/Board'
 import type { Course, Totals } from '../types'
 
 type Home = {
@@ -37,6 +38,7 @@ export function StudentHome() {
           <p className="muted">Here is what matters today.</p>
         </div>
       </header>
+      <Board />
       {data.totals ? (
         <section className="stat-row">
           <div className="stat"><strong>{data.totals.present}</strong><span>Days present</span></div>

@@ -669,4 +669,36 @@ body.docs-modal-open { overflow: hidden; }
 @media (max-width: 800px) {
   .explorer { grid-template-columns: 1fr; }
   .weight-fields { grid-template-columns: 1fr; }
+  .notes-desk { grid-template-columns: 1fr; }
+  .board-grid { grid-template-columns: 1fr; }
 }
+
+.notes-desk { display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 1rem; align-items: start; min-width: 0; }
+.notes-nav, .notes-page { min-width: 0; }
+.notes-book { margin-top: 1rem; }
+.notes-book__head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: center; }
+.note-tree-node { min-width: 0; }
+.note-toolbar { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.6rem 0; }
+.note-editor { min-width: 0; }
+.note-doc {
+  min-height: 18rem; padding: 0.8rem; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface-2); color: var(--ink); overflow-wrap: anywhere;
+}
+.note-doc:focus { outline: 2px solid var(--gold); }
+.note-doc ul[data-type="taskList"] { list-style: none; padding-left: 0.15rem; }
+.note-doc li[data-type="taskItem"] { display: flex; gap: 0.45rem; align-items: flex-start; }
+.note-doc li[data-type="taskItem"] > label { flex: 0 0 auto; margin-top: 0.2rem; }
+.note-doc li[data-collapsed="true"] ul { display: none; }
+.note-doc table { width: 100%; border-collapse: collapse; }
+.note-doc th, .note-doc td { border: 1px solid var(--line); padding: 0.35rem; }
+.note-save-status { margin-top: 0.5rem; }
+.board-panel { margin-bottom: 1rem; }
+.board-group { margin-top: 0.8rem; }
+.board-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.8rem; }
+.board-card {
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 0.85rem; min-width: 0; display: grid; gap: 0.45rem;
+}
+.board-card.is-late { border-color: var(--absent); }
+.board-card__link { color: inherit; text-decoration: none; display: grid; gap: 0.25rem; min-width: 0; }
+.board-card h3 { margin: 0; font-family: var(--display); font-size: 1.25rem; }

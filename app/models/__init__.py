@@ -57,6 +57,19 @@ class BookKind(str, enum.Enum):
     OTHER = "other"
 
 
+class ShareScope:
+    PERSONAL = "personal"
+    SCHOOL = "school"
+    CLASS = "class"
+    ALL = (PERSONAL, SCHOOL, CLASS)
+
+
+class ReminderStatus:
+    PENDING = "pending"
+    SENT = "sent"
+    CANCELLED = "cancelled"
+
+
 BOOK_KIND_LABELS = {
     BookKind.WORKBOOK: "Workbook",
     BookKind.CURRICULUM: "Curriculum",
@@ -458,11 +471,158 @@ class Task(Base):
     due_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
     completed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     show_on_calendar: Mapped[bool] = mapped_column(Boolean, default=True)
+    scope: Mapped[str] = mapped_column(String(16), default=ShareScope.SCHOOL, index=True)
+    owner_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    course_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("courses.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    priority: Mapped[int] = mapped_column(Integer, default=0)
+    inbox: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
+
+
+class Notebook(Base):
+    __tablename__ = "notebooks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(160))
+    scope: Mapped[str] = mapped_column(String(16), default=ShareScope.PERSONAL, index=True)
+    owner_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    course_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("courses.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    sections: Mapped[list["NoteSection"]] = relationship(
+        back_populates="notebook", cascade="all, delete-orphan", order_by="NoteSection.sort_order"
+    )
+    pages: Mapped[list["NotePage"]] = relationship(back_populates="notebook")
+
+
+class NoteSection(Base):
+    __tablename__ = "note_sections"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    notebook_id: Mapped[int] = mapped_column(ForeignKey("notebooks.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(160), default="Pages")
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    notebook: Mapped["Notebook"] = relationship(back_populates="sections")
+    pages: Mapped[list["NotePage"]] = relationship(back_populates="section")
+
+
+class NotePage(Base):
+    __tablename__ = "note_pages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    notebook_id: Mapped[int] = mapped_column(ForeignKey("notebooks.id", ondelete="CASCADE"), index=True)
+    section_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("note_sections.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("note_pages.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    owner_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    scope: Mapped[str] = mapped_column(String(16), default=ShareScope.PERSONAL, index=True)
+    course_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("courses.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    title: Mapped[str] = mapped_column(String(255), default="Untitled")
+    kind: Mapped[str] = mapped_column(String(16), default="note")
+    body_html: Mapped[str] = mapped_column(Text, default="")
+    body_json: Mapped[str] = mapped_column(Text, default="")
+    body_plain: Mapped[str] = mapped_column(Text, default="")
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    notebook: Mapped["Notebook"] = relationship(back_populates="pages")
+    section: Mapped[Optional["NoteSection"]] = relationship(back_populates="pages")
+    history: Mapped[list["NoteHistory"]] = relationship(
+        back_populates="page", cascade="all, delete-orphan"
+    )
+
+
+class NoteHistory(Base):
+    __tablename__ = "note_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    page_id: Mapped[int] = mapped_column(ForeignKey("note_pages.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(255), default="")
+    body_html: Mapped[str] = mapped_column(Text, default="")
+    body_json: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+    page: Mapped["NotePage"] = relationship(back_populates="history")
+
+
+class PageTask(Base):
+    __tablename__ = "page_tasks"
+    __table_args__ = (UniqueConstraint("page_id", "task_id", name="uq_page_task"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    page_id: Mapped[int] = mapped_column(ForeignKey("note_pages.id", ondelete="CASCADE"), index=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ReminderJob(Base):
+    __tablename__ = "reminder_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[Optional[str]] = mapped_column(String(160), nullable=True)
+    send_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    subject: Mapped[str] = mapped_column(String(255), default="")
+    body: Mapped[str] = mapped_column(Text, default="")
+    recipient: Mapped[str] = mapped_column(String(255), default="")
+    audience: Mapped[str] = mapped_column(String(16), default="personal")
+    recurrence: Mapped[str] = mapped_column(String(32), default="")
+    recurrence_json: Mapped[str] = mapped_column(Text, default="")
+    repeat_until: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    series_start: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default=ReminderStatus.PENDING, index=True)
+    last_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    email_delivered_for: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    items: Mapped[list["ReminderItem"]] = relationship(
+        back_populates="reminder",
+        order_by="ReminderItem.sort_order",
+        cascade="all, delete-orphan",
+    )
+
+
+class ReminderItem(Base):
+    __tablename__ = "reminder_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    reminder_id: Mapped[int] = mapped_column(
+        ForeignKey("reminder_jobs.id", ondelete="CASCADE"), index=True
+    )
+    item_type: Mapped[str] = mapped_column(String(16))
+    item_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    text: Mapped[str] = mapped_column(String(500), default="")
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    reminder: Mapped["ReminderJob"] = relationship(back_populates="items")
 
 
 class TeacherApiKey(Base):

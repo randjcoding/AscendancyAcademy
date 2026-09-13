@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api, ApiError, postJson } from '../api'
 import { useAuth } from '../Auth'
 import type { Book, Course, DayCell, Totals } from '../types'
+import { Board } from '../ui/Board'
 import { AttendanceCell } from './Attendance'
 
 type DeskData = {
@@ -123,6 +124,8 @@ export function Desk() {
       </header>
       {error ? <div className="status status--error">{error}</div> : null}
       {ok ? <div className="status status--ok">{ok}</div> : null}
+
+      <Board />
 
       {data.student ? (
         <section className="panel">

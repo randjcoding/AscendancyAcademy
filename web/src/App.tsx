@@ -14,6 +14,8 @@ import { Password } from './pages/Password'
 import { People } from './pages/People'
 import { Settings } from './pages/Settings'
 import { StudentGrades, StudentHome } from './pages/Student'
+import { Notes } from './pages/Notes'
+import { Reminders } from './pages/Reminders'
 import { Tasks } from './pages/Tasks'
 import { Usage } from './pages/Usage'
 
@@ -44,6 +46,9 @@ export default function App() {
               <Route path="/attendance" element={<Attendance />} />
               <Route path="/calendar" element={<CalendarPage />} />
               <Route path="/tasks" element={<Tasks />} />
+              <Route path="/notes" element={<Notes />} />
+              <Route path="/notes/:pageId" element={<Notes />} />
+              <Route path="/reminders" element={<Reminders />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
           </Route>

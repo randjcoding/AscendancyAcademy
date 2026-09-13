@@ -38,6 +38,7 @@ from app.models import (
     Grade,
     GradeCategory,
     NamedColor,
+    ShareScope,
     Student,
     Task,
     TeacherApiKey,
@@ -64,7 +65,10 @@ from app.services import documents as docs
 from app.services import grades as grades_svc
 from app.services import pages as pages_svc
 from app.services.documents import DocumentsError
+from app.services.clock import house_today
+from app.services.dates import parse_due
 from app.services.turnstile import turnstile_active, turnstile_token_from_request, verify_turnstile
+from app.services.visibility import can_complete_task, can_see_task, can_write_task, visible_tasks
 
 router = APIRouter(prefix="/api")
 
@@ -198,8 +202,13 @@ class DayBody(BaseModel):
 class TaskBody(BaseModel):
     title: str
     due_date: str = ""
+    due: str = ""
     notes: str = ""
     show_on_calendar: bool = True
+    scope: str = ""
+    course_id: int = 0
+    priority: int = 0
+    inbox: bool = False
     csrf: str = ""
 
 
@@ -908,24 +917,59 @@ def api_attendance_day(body: DayBody, request: Request, db: Session = Depends(ge
     return {"ok": True}
 
 
+def _task_due(body: TaskBody):
+    if body.due_date:
+        try:
+            return datetime.combine(date.fromisoformat(body.due_date[:10]), datetime.min.time())
+        except ValueError:
+            pass
+    if body.due.strip():
+        return parse_due(body.due)
+    return None
+
+
+def _task_json(db, user: User, t: Task) -> dict:
+    return {
+        "id": t.id,
+        "title": t.title,
+        "notes": t.notes,
+        "completed": t.completed,
+        "due": t.due_at.date().isoformat() if t.due_at else "",
+        "scope": t.scope or ShareScope.SCHOOL,
+        "owner_user_id": t.owner_user_id,
+        "course_id": t.course_id,
+        "priority": t.priority or 0,
+        "inbox": bool(t.inbox),
+        "show_on_calendar": t.show_on_calendar,
+        "can_complete": can_complete_task(db, user, t),
+        "can_edit": can_write_task(db, user, t),
+    }
+
+
 @router.get("/tasks")
-def api_tasks(request: Request, db: Session = Depends(get_db)):
+def api_tasks(request: Request, filter: str = "", course_id: int = 0, db: Session = Depends(get_db)):
     user = _must_user(request, db)
     if isinstance(user, JSONResponse):
         return user
-    tasks = db.scalars(select(Task).where(Task.deleted_at.is_(None)).order_by(Task.completed.asc(), Task.id.desc())).all()
+    today = house_today()
+    tasks = visible_tasks(db, user)
+    chosen = (filter or "").strip().lower()
+    if chosen == "mine":
+        tasks = [t for t in tasks if t.scope == ShareScope.PERSONAL and t.owner_user_id == user.id]
+    elif chosen == "school":
+        tasks = [t for t in tasks if (t.scope or ShareScope.SCHOOL) == ShareScope.SCHOOL]
+    elif chosen == "class":
+        tasks = [t for t in tasks if t.scope == ShareScope.CLASS and (not course_id or t.course_id == course_id)]
+    elif chosen == "today":
+        tasks = [t for t in tasks if not t.completed and t.due_at and t.due_at.date() <= today]
+    elif chosen == "inbox":
+        tasks = [t for t in tasks if t.inbox and not t.completed]
     return {
-        "can_edit": user.is_teacher,
-        "tasks": [
-            {
-                "id": t.id,
-                "title": t.title,
-                "notes": t.notes,
-                "completed": t.completed,
-                "due": t.due_at.date().isoformat() if t.due_at else "",
-            }
-            for t in tasks
-        ],
+        "can_edit": user.is_teacher or True,
+        "can_create": True,
+        "can_assign": user.is_teacher,
+        "filter": chosen,
+        "tasks": [_task_json(db, user, t) for t in tasks],
     }
 
 
@@ -939,18 +983,26 @@ def api_create_task(body: TaskBody, request: Request, db: Session = Depends(get_
     name = body.title.strip()
     if not name:
         return _err("Type a task.")
-    due_at = None
-    if body.due_date:
-        due_at = datetime.combine(date.fromisoformat(body.due_date), datetime.min.time())
+    scope = (body.scope or ShareScope.PERSONAL).strip().lower()
+    if scope not in ShareScope.ALL:
+        scope = ShareScope.PERSONAL
+    if not user.is_teacher:
+        scope = ShareScope.PERSONAL
+    due_at = _task_due(body)
     student = first_student(db)
     db.add(
         Task(
             created_by_user_id=user.id,
-            student_id=student.id if student else None,
+            owner_user_id=user.id if scope == ShareScope.PERSONAL else user.id,
+            student_id=student.id if student and scope != ShareScope.PERSONAL else None,
             title=name,
             notes=body.notes,
             due_at=due_at,
             show_on_calendar=body.show_on_calendar,
+            scope=scope,
+            course_id=body.course_id or None,
+            priority=body.priority,
+            inbox=body.inbox,
         )
     )
     db.commit()
@@ -965,10 +1017,13 @@ def api_toggle_task(task_id: int, body: ViewBody, request: Request, db: Session 
     if _csrf_bad(request, body.csrf):
         return _err("That form expired.", 403)
     task = db.get(Task, task_id)
-    if task and not task.deleted_at:
-        task.completed = not task.completed
-        db.commit()
-    return {"ok": True}
+    if not task or task.deleted_at or not can_see_task(db, user, task):
+        return _err("You cannot change that to-do.", 403)
+    if not can_complete_task(db, user, task):
+        return _err("You cannot mark that to-do.", 403)
+    task.completed = not task.completed
+    db.commit()
+    return {"ok": True, "completed": task.completed}
 
 
 @router.post("/tasks/{task_id}/delete")
@@ -979,9 +1034,10 @@ def api_delete_task(task_id: int, body: ViewBody, request: Request, db: Session 
     if _csrf_bad(request, body.csrf):
         return _err("That form expired.", 403)
     task = db.get(Task, task_id)
-    if task:
-        task.deleted_at = datetime.utcnow()
-        db.commit()
+    if not task or not can_write_task(db, user, task):
+        return _err("You cannot remove that to-do.", 403)
+    task.deleted_at = datetime.utcnow()
+    db.commit()
     return {"ok": True}
 
 

@@ -122,6 +122,20 @@ def ensure_schema() -> None:
             adds=adds,
         )
 
+    if "tasks" in tables:
+        cols = {c["name"] for c in insp.get_columns("tasks")}
+        _add_if_missing(cols=cols, table="tasks", name="scope", ddl="scope VARCHAR(16) DEFAULT 'school'", adds=adds)
+        _add_if_missing(cols=cols, table="tasks", name="owner_user_id", ddl="owner_user_id INTEGER", adds=adds)
+        _add_if_missing(cols=cols, table="tasks", name="course_id", ddl="course_id INTEGER", adds=adds)
+        _add_if_missing(cols=cols, table="tasks", name="priority", ddl="priority INTEGER DEFAULT 0", adds=adds)
+        _add_if_missing(
+            cols=cols,
+            table="tasks",
+            name="inbox",
+            ddl=f"inbox BOOLEAN DEFAULT {bool_false}",
+            adds=adds,
+        )
+
     if "attendance_days" in tables:
         cols = {c["name"] for c in insp.get_columns("attendance_days")}
         _add_if_missing(
@@ -138,6 +152,12 @@ def ensure_schema() -> None:
         with engine.begin() as conn:
             for stmt in adds:
                 conn.execute(text(stmt))
+
+    if "tasks" in tables:
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE tasks SET owner_user_id = created_by_user_id WHERE owner_user_id IS NULL")
+            )
 
     insp = inspect(engine)
     _migrate_book_catalog(insp, dialect)

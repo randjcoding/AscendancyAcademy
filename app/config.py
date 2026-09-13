@@ -61,6 +61,28 @@ class Settings(BaseSettings):
     gemma_api_key: str = ""
     gemma_timeout_seconds: int = 180
 
+    timezone: str = "America/New_York"
+
+    mail_enabled: bool = False
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 465
+    smtp_ssl: bool = True
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    mail_from_name: str = "Ascendancy Academy"
+    reminder_job_token: str = ""
+
+    @property
+    def mail_from_address(self) -> str:
+        return (self.smtp_from or self.smtp_user or "").strip()
+
+    @property
+    def mail_from_header(self) -> str:
+        addr = self.mail_from_address
+        name = (self.mail_from_name or "Ascendancy Academy").strip()
+        return f"{name} <{addr}>" if name and addr else addr
+
     @property
     def storage_path(self) -> Path:
         path = Path(self.storage_dir)

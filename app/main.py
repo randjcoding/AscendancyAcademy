@@ -11,11 +11,21 @@ from fastapi.staticfiles import StaticFiles
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.config import BASE_DIR, settings
-from app.routers import api, attendance, auth, books, calendar, courses, documents, grades, home, print_views, settings as settings_router
+from app.database import SessionLocal
+from app.routers import api, attendance, auth, board_api, books, calendar, courses, documents, grades, home, notes_api, print_views, reminders_api, settings as settings_router
 from app.routers import tasks, theme, usage
 from app.seed import seed
 from app.services.documents import ensure_library_layout
+from app.services.reminders import process_due_reminders
 from app.services.schema import ensure_schema
+
+
+def _run_due_reminders() -> None:
+    db = SessionLocal()
+    try:
+        process_due_reminders(db)
+    finally:
+        db.close()
 
 
 @asynccontextmanager
@@ -24,7 +34,16 @@ async def lifespan(app: FastAPI):
     ensure_schema()
     ensure_library_layout()
     seed()
+    scheduler = None
+    if not settings.testing and not os.environ.get("PYTEST_CURRENT_TEST"):
+        from apscheduler.schedulers.background import BackgroundScheduler
+
+        scheduler = BackgroundScheduler(timezone=settings.timezone or "America/New_York")
+        scheduler.add_job(_run_due_reminders, "interval", minutes=1, id="aa-reminders")
+        scheduler.start()
     yield
+    if scheduler:
+        scheduler.shutdown(wait=False)
 
 
 def create_app() -> FastAPI:
@@ -59,6 +78,8 @@ def create_app() -> FastAPI:
             or path.startswith("/documents/inline")
             or path.startswith("/documents/download")
             or path.startswith("/teacher/read-pages")
+            or path.startswith("/internal")
+            or path.startswith("/reminders/stop")
             or path == "/health"
         )
         if keep or os.environ.get("PYTEST_CURRENT_TEST"):
@@ -99,7 +120,38 @@ def create_app() -> FastAPI:
     def health():
         return {"status": "ok", "app": settings.site_name}
 
+    @app.get("/reminders/stop")
+    def reminder_stop_link(id: int = 0, token: str = ""):
+        from app.models import ReminderJob, ReminderStatus
+        from app.services.reminder_compose import verify_stop_token
+
+        db = SessionLocal()
+        try:
+            job = db.get(ReminderJob, id)
+            if not job or not verify_stop_token(id, token):
+                return JSONResponse({"error": "That stop link is not valid."}, status_code=403)
+            job.status = ReminderStatus.CANCELLED
+            db.commit()
+        finally:
+            db.close()
+        return RedirectResponse("/reminders?stopped=1", status_code=303)
+
+    @app.post("/internal/reminders/run")
+    def internal_reminders_run(request: Request):
+        token = request.headers.get("x-job-token") or request.query_params.get("token") or ""
+        if not settings.reminder_job_token or token != settings.reminder_job_token:
+            return JSONResponse({"error": "Forbidden"}, status_code=403)
+        db = SessionLocal()
+        try:
+            sent = process_due_reminders(db)
+        finally:
+            db.close()
+        return {"ok": True, "sent": sent}
+
     app.include_router(api.router)
+    app.include_router(notes_api.router)
+    app.include_router(reminders_api.router)
+    app.include_router(board_api.router)
     app.include_router(auth.router)
     app.include_router(home.router)
     app.include_router(courses.router)
