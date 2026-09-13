@@ -213,7 +213,7 @@ p { margin: 0 0 0.8em; }
   flex: 0 0 auto;
   width: 2.6rem;
   height: 2.6rem;
-  object-fit: contain;
+  color: var(--ink);
 }
 .brand__mark {
   display: inline-flex;
