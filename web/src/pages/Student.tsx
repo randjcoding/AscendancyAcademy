@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api'
 import { Board } from '../ui/Board'
-import type { Course, Totals } from '../types'
+import type { AssignedTest, Course, Totals } from '../types'
 
 type Home = {
   student: { id: number; name: string } | null
@@ -20,12 +20,16 @@ type GradeRow = {
 
 export function StudentHome() {
   const [data, setData] = useState<Home | null>(null)
+  const [tests, setTests] = useState<AssignedTest[]>([])
   const [error, setError] = useState('')
 
   useEffect(() => {
     api<Home>('/api/student')
       .then(setData)
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load home.'))
+    api<{ tests: AssignedTest[] }>('/api/tests/student/assigned')
+      .then((d) => setTests(d.tests))
+      .catch(() => undefined)
   }, [])
 
   if (!data) return error ? <div className="status status--error">{error}</div> : <p className="muted">Loading…</p>
@@ -39,6 +43,26 @@ export function StudentHome() {
         </div>
       </header>
       <Board />
+      {tests.length ? (
+        <section className="panel">
+          <h2>Tests to take</h2>
+          <ul className="plain-list">
+            {tests.map((t) => (
+              <li key={t.id}>
+                <span className="wrap-any">{t.title} <span className="muted">{t.course_title} · {t.question_count} questions</span></span>
+                {t.status === 'graded' ? (
+                  <span className="muted">
+                    {t.percent != null ? `${t.percent}%` : 'Done'}
+                    {t.can_retry ? <> · <Link to={`/take/${t.id}`}>fix misses</Link></> : null}
+                  </span>
+                ) : (
+                  <Link to={`/take/${t.id}`} className="btn btn--small btn--primary">Start</Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {data.totals ? (
         <section className="stat-row">
           <div className="stat"><strong>{data.totals.present}</strong><span>Days present</span></div>

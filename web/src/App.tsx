@@ -17,6 +17,9 @@ import { StudentGrades, StudentHome } from './pages/Student'
 import { Notes } from './pages/Notes'
 import { Reminders } from './pages/Reminders'
 import { Tasks } from './pages/Tasks'
+import { TakeTest } from './pages/TakeTest'
+import { TestEditor, TestMaker } from './pages/TestMaker'
+import { TestResults } from './pages/TestResults'
 import { Usage } from './pages/Usage'
 
 export default function App() {
@@ -37,11 +40,15 @@ export default function App() {
                 <Route path="/documents" element={<Documents />} />
                 <Route path="/photos" element={<Navigate to="/documents" replace />} />
                 <Route path="/usage" element={<Usage />} />
+                <Route path="/tests" element={<TestMaker />} />
+                <Route path="/tests/results" element={<TestResults />} />
+                <Route path="/tests/:id" element={<TestEditor />} />
                 <Route path="/people" element={<People />} />
               </Route>
               <Route element={<StudentGate />}>
                 <Route path="/student" element={<StudentHome />} />
                 <Route path="/grades" element={<StudentGrades />} />
+                <Route path="/take/:id" element={<TakeTest />} />
               </Route>
               <Route path="/attendance" element={<Attendance />} />
               <Route path="/calendar" element={<CalendarPage />} />

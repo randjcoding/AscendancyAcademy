@@ -78,6 +78,9 @@ export function Layout() {
               <NavLink to="/notes" className={({ isActive }) => (isActive ? 'is-current' : '')}>
                 Notes
               </NavLink>
+              <NavLink to="/tests" className={({ isActive }) => (isActive ? 'is-current' : '')}>
+                Tests
+              </NavLink>
               <NavLink to="/reminders" className={({ isActive }) => (isActive ? 'is-current' : '')}>
                 Reminders
               </NavLink>

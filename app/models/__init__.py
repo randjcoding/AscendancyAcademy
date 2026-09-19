@@ -710,3 +710,116 @@ class AiUsageEvent(Base):
     status: Mapped[str] = mapped_column(String(20), default="ok")
     detail: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
+class AssessmentStatusKind(str, enum.Enum):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    ARCHIVED = "archived"
+
+
+class Assessment(Base):
+    """A test a parent builds and a student takes."""
+
+    __tablename__ = "assessments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String(255), default="Untitled test")
+    instructions: Mapped[str] = mapped_column(Text, default="")
+    course_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("courses.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    assignment_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("assignments.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    created_by_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    source_text: Mapped[str] = mapped_column(Text, default="")
+    model_provider: Mapped[str] = mapped_column(String(32), default="")
+    model_name: Mapped[str] = mapped_column(String(80), default="")
+    status: Mapped[str] = mapped_column(String(16), default="draft", index=True)
+    allow_retries: Mapped[bool] = mapped_column(Boolean, default=False)
+    retry_credit: Mapped[str] = mapped_column(String(8), default="full")
+    shuffle: Mapped[bool] = mapped_column(Boolean, default=False)
+    points_possible: Mapped[float] = mapped_column(Float, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
+
+    questions: Mapped[list["AssessmentQuestion"]] = relationship(
+        back_populates="assessment",
+        cascade="all, delete-orphan",
+        order_by="AssessmentQuestion.sort_order",
+    )
+    attempts: Mapped[list["AssessmentAttempt"]] = relationship(
+        back_populates="assessment", cascade="all, delete-orphan"
+    )
+
+
+class AssessmentQuestion(Base):
+    __tablename__ = "assessment_questions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    assessment_id: Mapped[int] = mapped_column(
+        ForeignKey("assessments.id", ondelete="CASCADE"), index=True
+    )
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    type: Mapped[str] = mapped_column(String(8), default="mc")
+    prompt: Mapped[str] = mapped_column(Text, default="")
+    points: Mapped[float] = mapped_column(Float, default=1)
+    data_json: Mapped[str] = mapped_column(Text, default="")
+    explanation: Mapped[str] = mapped_column(Text, default="")
+
+    assessment: Mapped["Assessment"] = relationship(back_populates="questions")
+
+
+class AssessmentAttempt(Base):
+    __tablename__ = "assessment_attempts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    assessment_id: Mapped[int] = mapped_column(
+        ForeignKey("assessments.id", ondelete="CASCADE"), index=True
+    )
+    student_id: Mapped[int] = mapped_column(
+        ForeignKey("students.id", ondelete="CASCADE"), index=True
+    )
+    enrollment_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("enrollments.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    attempt_no: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(16), default="in_progress", index=True)
+    score_points: Mapped[float] = mapped_column(Float, default=0)
+    score_possible: Mapped[float] = mapped_column(Float, default=0)
+    percent: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    grade_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("grades.id", ondelete="SET NULL"), nullable=True
+    )
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    submitted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    assessment: Mapped["Assessment"] = relationship(back_populates="attempts")
+    answers: Mapped[list["AssessmentAnswer"]] = relationship(
+        back_populates="attempt", cascade="all, delete-orphan"
+    )
+
+
+class AssessmentAnswer(Base):
+    __tablename__ = "assessment_answers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    attempt_id: Mapped[int] = mapped_column(
+        ForeignKey("assessment_attempts.id", ondelete="CASCADE"), index=True
+    )
+    question_id: Mapped[int] = mapped_column(
+        ForeignKey("assessment_questions.id", ondelete="CASCADE"), index=True
+    )
+    response_json: Mapped[str] = mapped_column(Text, default="")
+    is_correct: Mapped[bool] = mapped_column(Boolean, default=False)
+    points_earned: Mapped[float] = mapped_column(Float, default=0)
+    retried: Mapped[bool] = mapped_column(Boolean, default=False)
+    first_correct: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    attempt: Mapped["AssessmentAttempt"] = relationship(back_populates="answers")

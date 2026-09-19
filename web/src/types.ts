@@ -97,6 +97,97 @@ export type DocListing = {
   crumbs: { label: string; href: string }[]
 }
 
+export type ApiKey = { id: number; name: string; provider: string }
+
+export type TestOption = { id: string; text: string }
+
+export type TestQuestion = {
+  id: number
+  type: 'mc' | 'tf' | 'match' | 'fill'
+  prompt: string
+  points: number
+  explanation?: string
+  // mc
+  options?: TestOption[]
+  multiple?: boolean
+  correct?: string[]
+  // tf
+  answer?: boolean
+  // match
+  left?: TestOption[]
+  right?: TestOption[]
+  pairs?: Record<string, string>
+  // fill
+  blank?: boolean
+  accepted?: string[]
+  case_sensitive?: boolean
+  // results drill-in
+  your_response?: unknown
+  points_earned?: number
+  is_correct?: boolean
+  first_correct?: boolean
+  retried?: boolean
+}
+
+export type TestSummary = {
+  id: number
+  title: string
+  status: string
+  course_id: number | null
+  course_title?: string
+  question_count: number
+  points_possible: number
+  created_at: string
+}
+
+export type TestDetail = {
+  id: number
+  title: string
+  instructions: string
+  course_id: number | null
+  course_title?: string
+  assignment_id: number | null
+  status: string
+  allow_retries: boolean
+  retry_credit: 'half' | 'full'
+  shuffle: boolean
+  points_possible: number
+  model_provider: string
+  model_name: string
+  source_text: string
+  question_count: number
+  questions: TestQuestion[]
+  created_at: string
+}
+
+export type AssignedTest = {
+  id: number
+  title: string
+  course_title: string
+  question_count: number
+  points_possible: number
+  status: string
+  percent: number | null
+  attempt_id: number | null
+  can_retry: boolean
+}
+
+export type AttemptDetail = {
+  attempt: {
+    id: number
+    test_id: number
+    test_title: string
+    status: string
+    attempt_no: number
+    score_points: number
+    score_possible: number
+    percent: number | null
+    allow_retries: boolean
+    retry_credit: 'half' | 'full'
+  }
+  questions: TestQuestion[]
+}
+
 export type Me = {
   user: User | null
   site_name: string

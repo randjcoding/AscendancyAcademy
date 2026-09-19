@@ -37,6 +37,39 @@ def log_event(
     return row
 
 
+def log_ai(
+    db: Session,
+    *,
+    user: User,
+    student_id: int | None,
+    provider: str,
+    model: str,
+    key_name: str,
+    purpose: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    usd: float,
+    error: str = "",
+) -> AiUsageEvent:
+    """Record any AI call (not just page reads) so AI Usage stays honest."""
+    row = AiUsageEvent(
+        user_id=user.id,
+        student_id=student_id,
+        provider=provider,
+        model=model,
+        key_name=key_name,
+        purpose=purpose,
+        prompt_tokens=int(prompt_tokens or 0),
+        completion_tokens=int(completion_tokens or 0),
+        usd=float(usd or 0),
+        status="error" if error else "ok",
+        detail=(error or "")[:500],
+    )
+    db.add(row)
+    db.flush()
+    return row
+
+
 def teachers_for_student(db: Session, student_id: int) -> list[int]:
     links = db.scalars(select(StudentTeacher.teacher_id).where(StudentTeacher.student_id == student_id)).all()
     users = db.scalars(select(Teacher.user_id).where(Teacher.id.in_(links))).all() if links else []
