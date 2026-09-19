@@ -1,4 +1,4 @@
-import { useMemo, useState, type MouseEvent } from 'react'
+import { useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { USA_CENTROIDS } from './maps/usaCentroids'
 import { USA_PATHS, USA_VIEWBOX } from './maps/usaPaths'
 
@@ -13,14 +13,30 @@ export type MapBox = { id: string; label: string; x: number; y: number; w: numbe
 
 export const MAP_ZOOMS: MapBox[] = [
   { id: 'whole', label: 'Whole map', x: 0, y: 0, w: 1000, h: 589 },
-  { id: 'west', label: 'West', x: 0, y: 20, w: 420, h: 400 },
-  { id: 'midwest', label: 'Midwest', x: 500, y: 60, w: 280, h: 280 },
-  { id: 'south', label: 'South', x: 480, y: 240, w: 400, h: 330 },
-  { id: 'northeast', label: 'Northeast', x: 780, y: 50, w: 230, h: 240 },
   { id: 'new_england', label: 'New England', x: 860, y: 40, w: 150, h: 180 },
-  { id: 'alaska', label: 'Alaska', x: 0, y: 420, w: 280, h: 170 },
-  { id: 'hawaii', label: 'Hawaii', x: 300, y: 470, w: 160, h: 120 },
+  { id: 'mid_atlantic', label: 'Mid-Atlantic', x: 780, y: 70, w: 210, h: 230 },
+  { id: 'south', label: 'South', x: 480, y: 240, w: 400, h: 330 },
+  { id: 'midwest', label: 'Midwest', x: 500, y: 60, w: 280, h: 280 },
+  { id: 'mountain_west', label: 'Mountain West', x: 230, y: 50, w: 300, h: 400 },
+  { id: 'pacific', label: 'Pacific', x: 150, y: 20, w: 180, h: 400 },
+  { id: 'alaska_hawaii', label: 'Alaska & Hawaii', x: 0, y: 400, w: 500, h: 190 },
 ]
+
+export function boxForState(id: string): MapBox {
+  if (id === 'AK') return { id: 'AK', label: 'Alaska', x: 0, y: 420, w: 280, h: 170 }
+  if (id === 'HI') return { id: 'HI', label: 'Hawaii', x: 300, y: 470, w: 160, h: 120 }
+  const pt = USA_CENTROIDS[id]
+  if (!pt) return MAP_ZOOMS[0]
+  const pad = id === 'TX' || id === 'CA' || id === 'MT' ? 110 : 72
+  return {
+    id,
+    label: id,
+    x: Math.max(0, pt.x - pad),
+    y: Math.max(0, pt.y - pad),
+    w: pad * 2,
+    h: pad * 2,
+  }
+}
 
 export const MAP_SKINS = [
   { id: 'inherit', label: 'Match the desk' },
@@ -52,7 +68,10 @@ export function UsaMap({
   regionTint,
   labels,
   tips,
+  focusState,
+  zoomId,
   onPick,
+  onZoom,
 }: {
   places: Place[]
   selected?: string
@@ -61,9 +80,12 @@ export function UsaMap({
   regionTint?: boolean
   labels?: boolean
   tips?: boolean
+  focusState?: string
+  zoomId?: string
   onPick: (id: string) => void
+  onZoom?: (id: string) => void
 }) {
-  const [box, setBox] = useState(MAP_ZOOMS[0])
+  const [box, setBox] = useState(() => MAP_ZOOMS.find((z) => z.id === zoomId) || MAP_ZOOMS[0])
   const [focus, setFocus] = useState(highlight || selected || 'TX')
   const [skin, setSkin] = useState<MapSkin>(readSkin)
   const [tip, setTip] = useState<{ x: number; y: number; title: string; sub: string } | null>(null)
@@ -71,6 +93,17 @@ export function UsaMap({
   const ids = useMemo(() => Object.keys(USA_PATHS).filter((id) => byId[id]), [byId])
   const zoomed = box.w < 450
   const view = `${box.x} ${box.y} ${box.w} ${box.h}`
+
+  useEffect(() => {
+    if (focusState) setBox(boxForState(focusState))
+  }, [focusState])
+
+  useEffect(() => {
+    if (!focusState && zoomId) {
+      const next = MAP_ZOOMS.find((z) => z.id === zoomId)
+      if (next) setBox(next)
+    }
+  }, [zoomId, focusState])
 
   const moveFocus = (dir: number) => {
     const idx = Math.max(0, ids.indexOf(focus))
@@ -108,7 +141,10 @@ export function UsaMap({
             key={z.id}
             type="button"
             className={`btn btn--small ${box.id === z.id ? 'btn--primary' : 'btn--ghost'}`}
-            onClick={() => setBox(z)}
+            onClick={() => {
+              setBox(z)
+              onZoom?.(z.id)
+            }}
           >
             {z.label}
           </button>

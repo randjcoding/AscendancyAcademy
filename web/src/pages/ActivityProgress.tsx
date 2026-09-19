@@ -41,6 +41,8 @@ export function ActivityProgress() {
   const [mine, setMine] = useState<HardItem[]>([])
   const [strong, setStrong] = useState<HardItem[]>([])
   const [error, setError] = useState('')
+  const [paths, setPaths] = useState<{ student_id: number; name: string; path: { beaten: boolean; regions: { label: string; passed: boolean; unlocked: boolean }[] } }[]>([])
+  const [myPath, setMyPath] = useState<{ beaten: boolean; regions: { label: string; passed: boolean; unlocked: boolean; intro_done: boolean }[]; final_open: boolean } | null>(null)
 
   useEffect(() => {
     api<{ students: StudentRow[] }>('/api/activities/struggle?activity_id=us-state-capitals')
@@ -52,7 +54,15 @@ export function ActivityProgress() {
         setStrong(d.strong || [])
       })
       .catch(() => undefined)
-  }, [])
+    api<{ path: { beaten: boolean; regions: { label: string; passed: boolean; unlocked: boolean; intro_done: boolean }[]; final_open: boolean } | null }>('/api/activities/us-state-capitals/path')
+      .then((d) => setMyPath(d.path))
+      .catch(() => undefined)
+    if (user?.is_teacher) {
+      api<{ students: { student_id: number; name: string; path: { beaten: boolean; regions: { label: string; passed: boolean; unlocked: boolean }[] } }[] }>('/api/activities/us-state-capitals/paths')
+        .then((d) => setPaths(d.students || []))
+        .catch(() => undefined)
+    }
+  }, [user?.is_teacher])
 
   return (
     <>
@@ -68,6 +78,20 @@ export function ActivityProgress() {
         </p>
       </header>
       {error ? <div className="status status--error">{error}</div> : null}
+      {myPath ? (
+        <section className="panel">
+          <h2>Learn the country</h2>
+          <p className="muted">{myPath.beaten ? 'The whole country is done.' : myPath.final_open ? 'Groups are done. Beat the country next.' : 'Work one group at a time to 90%.'}</p>
+          <ul className="plain-list">
+            {myPath.regions.map((r) => (
+              <li key={r.label}>
+                <strong className="wrap-any">{r.label}</strong>
+                <span className="muted">{r.passed ? 'Done' : r.unlocked ? (r.intro_done ? 'In progress' : 'Say the names') : 'Locked'}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <section className="panel">
         <h2>{user?.is_teacher ? 'Your view' : 'Your sticky spots'}</h2>
         <HardList items={mine} />
@@ -79,6 +103,20 @@ export function ActivityProgress() {
           </>
         ) : null}
       </section>
+      {user?.is_teacher && paths.length ? (
+        <section className="panel">
+          <h2>Path by student</h2>
+          {paths.map((row) => (
+            <p key={row.student_id}>
+              <strong className="wrap-any">{row.name}</strong>
+              <span className="muted">
+                {' '}
+                {row.path.beaten ? 'Beat the country' : row.path.regions.filter((r) => r.passed).map((r) => r.label).join(', ') || 'Just starting'}
+              </span>
+            </p>
+          ))}
+        </section>
+      ) : null}
       {user?.is_teacher ? (
         <section className="panel">
           <h2>How the family is doing</h2>

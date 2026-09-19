@@ -23,6 +23,7 @@ class MapPlace(BaseModel):
     capital_phonetic: str = ""
     tip: str = ""
     region: str = ""
+    path_region: str = ""
     trap_city: str = ""
 
 

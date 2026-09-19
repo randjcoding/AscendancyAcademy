@@ -10,6 +10,7 @@ from app.activities.registry import all_activities, get_activity, public_card
 from app.activities.schema import ALL_MODES
 from app.database import get_db
 from app.dependencies import first_student
+from app.models import Student
 from app.routers.api import _csrf_bad, _err, _must_user
 from app.services import activities as svc
 
@@ -24,6 +25,12 @@ class AttemptBody(BaseModel):
     time_taken_seconds: int = 0
     visited: int = 0
     detail: dict = {}
+
+
+class PathBody(BaseModel):
+    csrf: str = ""
+    region: str = ""
+    intro_done: bool = False
 
 
 def _student_id(db, user):
@@ -101,6 +108,7 @@ def get_one(activity_id: str, request: Request, db: Session = Depends(get_db)):
         if user.is_student or user.is_teacher
         else [],
         "struggle": svc.item_stats(db, student_id, activity_id) if student_id else [],
+        "path": svc.path_for(db, student_id, activity_id) if student_id else None,
     }
 
 
@@ -129,6 +137,7 @@ def save_attempt(activity_id: str, body: AttemptBody, request: Request, db: Sess
             total=body.total,
             time_taken_seconds=body.time_taken_seconds,
             detail=detail,
+            bind_student_id=_student_id(db, user),
         )
     except ValueError as exc:
         return _err(str(exc))
@@ -149,6 +158,56 @@ def struggle_one(activity_id: str, request: Request, student_id: int = 0, db: Se
         "need_work": [row for row in items if row["wrong"] > 0],
         "strong": [row for row in items if row["seen"] >= 3 and row["miss_rate"] < 25 and row["wrong"] == 0],
     }
+
+
+@router.get("/{activity_id}/path")
+def get_path(activity_id: str, request: Request, student_id: int = 0, db: Session = Depends(get_db)):
+    user = _must_user(request, db)
+    if isinstance(user, JSONResponse):
+        return user
+    if not get_activity(activity_id):
+        return _err("That activity is gone.", 404)
+    sid = student_id if user.is_teacher and student_id else _student_id(db, user)
+    if not sid:
+        return {"path": None}
+    return {"path": svc.path_for(db, sid, activity_id)}
+
+
+@router.post("/{activity_id}/path")
+def save_path(activity_id: str, body: PathBody, request: Request, db: Session = Depends(get_db)):
+    user = _must_user(request, db)
+    if isinstance(user, JSONResponse):
+        return user
+    if _csrf_bad(request, body.csrf):
+        return _err("That form expired.", 403)
+    if not get_activity(activity_id):
+        return _err("That activity is gone.", 404)
+    student = svc.student_for(db, user)
+    if not student:
+        sid = _student_id(db, user)
+        student = db.get(Student, sid) if sid else None
+    if not student:
+        return _err("Students save path progress.")
+    if not body.intro_done:
+        return _err("Mark the intro first.")
+    try:
+        path = svc.apply_path_intro(db, student.id, activity_id, body.region)
+        db.commit()
+    except ValueError as exc:
+        return _err(str(exc))
+    return {"ok": True, "path": path}
+
+
+@router.get("/{activity_id}/paths")
+def list_paths(activity_id: str, request: Request, db: Session = Depends(get_db)):
+    user = _must_user(request, db)
+    if isinstance(user, JSONResponse):
+        return user
+    if not user.is_teacher:
+        return _err("Teacher required", 403)
+    if not get_activity(activity_id):
+        return _err("That activity is gone.", 404)
+    return {"students": svc.teacher_paths(db, activity_id)}
 
 
 @router.get("/{activity_id}/history")

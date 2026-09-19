@@ -7,9 +7,10 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.activities.path_regions import PATH_GAMES, PATH_ORDER, PATH_PASS, PATH_REGIONS
 from app.activities.registry import get_activity
 from app.activities.schema import stars_for
-from app.models import ActivityAttempt, ActivityItemStat, ActivityProgress, Student, User, UserAiGrant
+from app.models import ActivityAttempt, ActivityItemStat, ActivityPathProgress, ActivityProgress, Student, User, UserAiGrant
 from app.services.clock import house_today
 
 
@@ -72,6 +73,7 @@ def record_attempt(
     total: int,
     time_taken_seconds: int,
     detail: dict | None = None,
+    bind_student_id: int | None = None,
 ) -> dict:
     activity = get_activity(activity_id)
     if not activity:
@@ -88,9 +90,10 @@ def record_attempt(
         total = len(activity.content) or 50
     stars = stars_for(activity.passing_criteria, finished=finished, accuracy=accuracy)
     student = student_for(db, user)
+    sid = student.id if student else bind_student_id
     attempt = ActivityAttempt(
         user_id=user.id,
-        student_id=student.id if student else None,
+        student_id=sid,
         activity_id=activity_id,
         mode=mode,
         score=score,
@@ -102,10 +105,13 @@ def record_attempt(
     )
     db.add(attempt)
     progress = None
-    if student:
-        progress = _bump_progress(db, student.id, activity_id, accuracy, stars, finished)
+    if sid:
+        progress = _bump_progress(db, sid, activity_id, accuracy, stars, finished)
         if mode != "study":
-            _record_item_stats(db, student.id, activity_id, detail or {})
+            _record_item_stats(db, sid, activity_id, detail or {})
+        path_info = (detail or {}).get("path")
+        if isinstance(path_info, dict):
+            apply_path_attempt(db, sid, activity_id, mode, path_info)
     db.commit()
     db.refresh(attempt)
     return {
@@ -114,7 +120,7 @@ def record_attempt(
         "accuracy": accuracy,
         "score": score,
         "total": total,
-        "progress": progress_row(db, student.id, activity_id) if student else None,
+        "progress": progress_row(db, sid, activity_id) if sid else None,
         "streak": progress.streak if progress else 0,
     }
 
@@ -276,6 +282,149 @@ def history(db: Session, *, student_id: int | None, user_id: int, activity_id: s
         }
         for r in rows
     ]
+
+
+def _empty_path() -> dict:
+    return {
+        "regions": {row["id"]: {"intro_done": False, "games": {}} for row in PATH_REGIONS},
+        "final": {},
+        "beaten": False,
+    }
+
+
+def _load_path(db: Session, student_id: int, activity_id: str) -> tuple[ActivityPathProgress, dict]:
+    row = db.scalar(
+        select(ActivityPathProgress).where(
+            ActivityPathProgress.student_id == student_id,
+            ActivityPathProgress.activity_id == activity_id,
+        )
+    )
+    if not row:
+        row = ActivityPathProgress(student_id=student_id, activity_id=activity_id, progress_json="{}")
+        db.add(row)
+        db.flush()
+    raw = {}
+    try:
+        raw = json.loads(row.progress_json or "{}")
+    except json.JSONDecodeError:
+        raw = {}
+    data = _empty_path()
+    data["beaten"] = bool(raw.get("beaten"))
+    if isinstance(raw.get("final"), dict):
+        data["final"] = {k: float(v) for k, v in raw["final"].items() if k in PATH_GAMES}
+    regions = raw.get("regions") if isinstance(raw.get("regions"), dict) else {}
+    for rid in PATH_ORDER:
+        src = regions.get(rid) if isinstance(regions.get(rid), dict) else {}
+        games = src.get("games") if isinstance(src.get("games"), dict) else {}
+        data["regions"][rid] = {
+            "intro_done": bool(src.get("intro_done")),
+            "games": {k: float(v) for k, v in games.items() if k in PATH_GAMES},
+        }
+    return row, data
+
+
+def _region_passed(games: dict) -> bool:
+    return all(float(games.get(mode) or 0) + 1e-9 >= PATH_PASS for mode in PATH_GAMES)
+
+
+def path_unlocked(data: dict) -> dict:
+    unlocked = []
+    for i, rid in enumerate(PATH_ORDER):
+        if i == 0:
+            unlocked.append(rid)
+            continue
+        prev = data["regions"][PATH_ORDER[i - 1]]
+        if prev["intro_done"] and _region_passed(prev["games"]):
+            unlocked.append(rid)
+        else:
+            break
+    final_open = all(
+        data["regions"][rid]["intro_done"] and _region_passed(data["regions"][rid]["games"]) for rid in PATH_ORDER
+    )
+    beaten = final_open and _region_passed(data.get("final") or {})
+    return {"unlocked": unlocked, "final_open": final_open, "beaten": beaten}
+
+
+def public_path(data: dict) -> dict:
+    locks = path_unlocked(data)
+    trail = []
+    for row in PATH_REGIONS:
+        rid = row["id"]
+        info = data["regions"][rid]
+        trail.append(
+            {
+                "id": rid,
+                "label": row["label"],
+                "ids": row["ids"],
+                "intro_done": info["intro_done"],
+                "games": {mode: info["games"].get(mode) for mode in PATH_GAMES},
+                "passed": info["intro_done"] and _region_passed(info["games"]),
+                "unlocked": rid in locks["unlocked"],
+            }
+        )
+    return {
+        "regions": trail,
+        "final": {mode: data["final"].get(mode) for mode in PATH_GAMES},
+        "final_open": locks["final_open"],
+        "beaten": locks["beaten"] or data["beaten"],
+        "games": list(PATH_GAMES),
+        "pass": PATH_PASS,
+    }
+
+
+def path_for(db: Session, student_id: int, activity_id: str) -> dict:
+    _row, data = _load_path(db, student_id, activity_id)
+    return public_path(data)
+
+
+def teacher_paths(db: Session, activity_id: str) -> list[dict]:
+    students = db.scalars(select(Student).order_by(Student.id)).all()
+    return [
+        {"student_id": s.id, "name": s.display_name, "path": path_for(db, s.id, activity_id)}
+        for s in students
+    ]
+
+
+def apply_path_intro(db: Session, student_id: int, activity_id: str, region: str) -> dict:
+    if region not in PATH_ORDER:
+        raise ValueError("Pick a region first.")
+    row, data = _load_path(db, student_id, activity_id)
+    locks = path_unlocked(data)
+    if region not in locks["unlocked"]:
+        raise ValueError("That region is still locked.")
+    data["regions"][region]["intro_done"] = True
+    row.progress_json = json.dumps(data)
+    db.flush()
+    return public_path(data)
+
+
+def apply_path_attempt(db: Session, student_id: int, activity_id: str, mode: str, path_info: dict) -> None:
+    if mode not in PATH_GAMES:
+        return
+    region = str(path_info.get("region") or "")
+    final = bool(path_info.get("final"))
+    try:
+        first_pass = float(path_info.get("first_pass"))
+    except (TypeError, ValueError):
+        return
+    row, data = _load_path(db, student_id, activity_id)
+    locks = path_unlocked(data)
+    if final:
+        if not locks["final_open"]:
+            return
+        prev = data["final"].get(mode) or 0
+        data["final"][mode] = max(prev, first_pass)
+        if _region_passed(data["final"]):
+            data["beaten"] = True
+    else:
+        if region not in PATH_ORDER or region not in locks["unlocked"]:
+            return
+        if not data["regions"][region]["intro_done"]:
+            return
+        prev = data["regions"][region]["games"].get(mode) or 0
+        data["regions"][region]["games"][mode] = max(prev, first_pass)
+    row.progress_json = json.dumps(data)
+    db.flush()
 
 
 def teacher_results(db: Session) -> list[dict]:

@@ -872,6 +872,19 @@ class ActivityProgress(Base):
     )
 
 
+class ActivityPathProgress(Base):
+    __tablename__ = "activity_path_progress"
+    __table_args__ = (UniqueConstraint("student_id", "activity_id", name="uq_activity_path_progress"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), index=True)
+    activity_id: Mapped[str] = mapped_column(String(80), index=True)
+    progress_json: Mapped[str] = mapped_column(Text, default="{}")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
 class ActivityItemStat(Base):
     __tablename__ = "activity_item_stats"
     __table_args__ = (UniqueConstraint("student_id", "activity_id", "item_id", name="uq_activity_item_stat"),)

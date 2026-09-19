@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from app.activities.path_regions import PATH_GAMES, all_ids
 from app.activities.registry import all_activities, get_activity
 from app.activities.schema import stars_for
 from app.config import settings
@@ -32,6 +33,7 @@ def _sit_as(client: TestClient, kind: UserKind) -> dict:
 
 
 def test_catalog_has_fifty_unique_capitals():
+    all_activities.cache_clear()
     catalog = all_activities()
     activity = catalog["us-state-capitals"]
     places = activity.places()
@@ -51,6 +53,9 @@ def test_catalog_has_fifty_unique_capitals():
         "neighbor_hunt",
     }
     assert all(p.trap_city for p in places)
+    assert {p.id for p in places} == set(all_ids())
+    assert {p.id for p in places if p.path_region == "new_england"} == {"ME", "NH", "VT", "MA", "RI", "CT"}
+    assert next(p for p in places if p.id == "UT").path_region == "mountain_west"
 
 
 def test_star_thresholds():
@@ -170,3 +175,47 @@ def test_gregory_remap_is_idempotent():
         db.rollback()
     finally:
         db.close()
+
+
+def test_learning_path_locks_later_regions():
+    with TestClient(app) as client:
+        greg = _sit_as(client, UserKind.STUDENT)
+        intro = client.post(
+            "/api/activities/us-state-capitals/path",
+            json={"csrf": greg["csrf"], "region": "new_england", "intro_done": True},
+        )
+        assert intro.status_code == 200, intro.text
+        sneak = client.post(
+            "/api/activities/us-state-capitals/attempt",
+            json={
+                "csrf": greg["csrf"],
+                "mode": "find_the_state",
+                "score": 8,
+                "total": 8,
+                "detail": {"path": {"region": "mountain_west", "first_pass": 100}},
+            },
+        )
+        assert sneak.status_code == 200, sneak.text
+        path = client.get("/api/activities/us-state-capitals/path").json()["path"]
+        mountain = next(row for row in path["regions"] if row["id"] == "mountain_west")
+        assert mountain["unlocked"] is False
+        assert not mountain["games"]["find_the_state"]
+        for mode in PATH_GAMES:
+            saved = client.post(
+                "/api/activities/us-state-capitals/attempt",
+                json={
+                    "csrf": greg["csrf"],
+                    "mode": mode,
+                    "score": 6,
+                    "total": 6,
+                    "detail": {"path": {"region": "new_england", "first_pass": 100}},
+                },
+            )
+            assert saved.status_code == 200, saved.text
+        path2 = client.get("/api/activities/us-state-capitals/path").json()["path"]
+        ne = next(row for row in path2["regions"] if row["id"] == "new_england")
+        assert ne["passed"] is True
+        mid = next(row for row in path2["regions"] if row["id"] == "mid_atlantic")
+        assert mid["unlocked"] is True
+        south = next(row for row in path2["regions"] if row["id"] == "south")
+        assert south["unlocked"] is False

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api'
 import { useAuth } from '../Auth'
 import { ActivityRunner, type ActivityPayload, type StruggleItem } from '../activities/ActivityRunner'
+import { LearningPath, type PathState } from '../activities/LearningPath'
 import { Stars } from '../activities/DrillHud'
 
 export function StateCapitals() {
@@ -10,14 +11,16 @@ export function StateCapitals() {
   const [activity, setActivity] = useState<ActivityPayload | null>(null)
   const [stars, setStars] = useState(0)
   const [struggle, setStruggle] = useState<StruggleItem[]>([])
+  const [path, setPath] = useState<PathState | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api<{ activity: ActivityPayload; struggle?: StruggleItem[] }>('/api/activities/us-state-capitals')
+    api<{ activity: ActivityPayload; struggle?: StruggleItem[]; path?: PathState | null }>('/api/activities/us-state-capitals')
       .then((d) => {
         setActivity(d.activity)
         setStars(d.activity.best_stars || 0)
         setStruggle(d.struggle || [])
+        setPath(d.path || null)
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load that activity.'))
   }, [])
@@ -45,6 +48,16 @@ export function StateCapitals() {
           {struggle.filter((s) => s.wrong > 0).length} states still need work.{' '}
           <Link to="/activities/progress">See the list</Link>
         </p>
+      ) : null}
+      {path ? (
+        <LearningPath
+          places={activity.content}
+          csrf={user?.csrf || ''}
+          activityId={activity.activity_id}
+          soundOn={user?.sound_enabled !== false}
+          path={path}
+          onChange={setPath}
+        />
       ) : null}
       <ActivityRunner activity={activity} csrf={user?.csrf || ''} soundOn={user?.sound_enabled !== false} struggle={struggle} />
     </>
