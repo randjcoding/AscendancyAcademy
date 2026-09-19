@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, postJson } from '../api'
 import { useAuth } from '../Auth'
@@ -24,6 +24,8 @@ type Notebook = {
   color: string
   scope: string
   course_id: number | null
+  lifetime: boolean
+  school_year_id: number | null
   can_write: boolean
   sections: Section[]
   pages: TreePage[]
@@ -68,7 +70,21 @@ export function Notes() {
   const [compact, setCompact] = useState(() => {
     try { return localStorage.getItem('aa.notes.compact') === '1' } catch { return false }
   })
-  const [booksOpen, setBooksOpen] = useState(true)
+  const [booksOpen, setBooksOpen] = useState(() => {
+    try { return localStorage.getItem('aa.notes.booksOpen') !== '0' } catch { return true }
+  })
+  const [pagesOpen, setPagesOpen] = useState(() => {
+    try { return localStorage.getItem('aa.notes.pagesOpen') !== '0' } catch { return true }
+  })
+  const [booksW, setBooksW] = useState(() => {
+    try { return Number(localStorage.getItem('aa.notes.booksW')) || 220 } catch { return 220 }
+  })
+  const [pagesW, setPagesW] = useState(() => {
+    try { return Number(localStorage.getItem('aa.notes.pagesW')) || 240 } catch { return 240 }
+  })
+  const [bookFilter, setBookFilter] = useState<'all' | 'forever' | 'year'>('all')
+  const [newLifetime, setNewLifetime] = useState(true)
+  const [bookLifetime, setBookLifetime] = useState(true)
   const [ribbonH, setRibbonH] = useState(56)
   const [sourceOpen, setSourceOpen] = useState(false)
   const [sourceHtml, setSourceHtml] = useState('')
@@ -215,6 +231,32 @@ export function Notes() {
   const persistFlag = (key: string, value: boolean) => {
     try { localStorage.setItem(key, value ? '1' : '0') } catch { /* ignore */ }
   }
+
+  useEffect(() => { persistFlag('aa.notes.booksOpen', booksOpen) }, [booksOpen])
+  useEffect(() => { persistFlag('aa.notes.pagesOpen', pagesOpen) }, [pagesOpen])
+  useEffect(() => {
+    try { localStorage.setItem('aa.notes.booksW', String(booksW)) } catch { /* ignore */ }
+  }, [booksW])
+  useEffect(() => {
+    try { localStorage.setItem('aa.notes.pagesW', String(pagesW)) } catch { /* ignore */ }
+  }, [pagesW])
+
+  const startWide = (e: ReactPointerEvent, start: number, set: (n: number) => void, min = 140, max = 480) => {
+    const x = e.clientX
+    const move = (ev: PointerEvent) => set(Math.min(max, Math.max(min, start + ev.clientX - x)))
+    const up = () => {
+      document.removeEventListener('pointermove', move)
+      document.removeEventListener('pointerup', up)
+    }
+    document.addEventListener('pointermove', move)
+    document.addEventListener('pointerup', up)
+  }
+
+  const shownBooks = notebooks.filter((nb) => {
+    if (bookFilter === 'forever') return Boolean(nb.lifetime)
+    if (bookFilter === 'year') return !nb.lifetime
+    return true
+  })
 
   const recoverDraft = () => {
     if (!user || !detail) return
@@ -368,68 +410,109 @@ export function Notes() {
         </div>
       ) : null}
       <div className="on-body">
-        <aside className={`on-notebooks ${booksOpen ? 'is-open' : ''}`}>
-          <div className="on-notebooks__head">
-            <input className="input on-notebooks__search" placeholder="Search notebooks…" onChange={(e) => {
-              const q = e.target.value.toLowerCase()
-              document.querySelectorAll<HTMLElement>('[data-book-name]').forEach((el) => {
-                el.hidden = q.length > 0 && !((el.dataset.bookName || '').includes(q))
-              })
-            }} />
-          </div>
-          <div className="on-notebooks__list">
-            {notebooks.map((nb) => (
-              <button
-                key={nb.id}
-                type="button"
-                data-book-name={nb.name.toLowerCase()}
-                className={`onenote-book ${notebookId === nb.id ? 'is-on' : ''}`}
-                onClick={() => {
-                  setNotebookId(nb.id)
-                  setSectionId(nb.sections[0]?.id || 0)
-                }}
-              >
-                <span className="onenote-book__dot" style={{ background: nb.color }} />
-                <span className="wrap-any">{nb.name}</span>
-              </button>
-            ))}
-          </div>
-          {notebook?.can_write ? (
-            <button type="button" className="linkish" onClick={() => {
-              setBookName(notebook.name)
-              setBookColor(notebook.color || '#d4b44a')
-              setBookEdit(true)
-            }}>Notebook settings</button>
-          ) : null}
-          <form
-            className="onenote-add"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (!user || !newBook.trim()) return
-              void postJson('/api/notes/notebooks', { name: newBook, scope: 'personal', csrf: user.csrf }).then(() => {
-                setNewBook('')
-                void loadTree()
-              })
-            }}
-          >
-            <input className="input" value={newBook} onChange={(e) => setNewBook(e.target.value)} placeholder="New notebook" />
-            <button type="submit" className="btn btn--small">Add</button>
-          </form>
-        </aside>
-        <aside className="on-pages">
-          <div className="row-actions">
+        {booksOpen ? (
+          <aside className="on-notebooks is-open" style={{ flex: `0 0 ${booksW}px` }}>
+            <div className="on-notebooks__head">
+              <div className="on-rail-head">
+                <strong>Notebooks</strong>
+                <button type="button" className="btn btn--small btn--ghost" onClick={() => setBooksOpen(false)}>Hide</button>
+              </div>
+              <input className="input on-notebooks__search" placeholder="Search notebooks…" onChange={(e) => {
+                const q = e.target.value.toLowerCase()
+                document.querySelectorAll<HTMLElement>('[data-book-name]').forEach((el) => {
+                  el.hidden = q.length > 0 && !((el.dataset.bookName || '').includes(q))
+                })
+              }} />
+              <div className="chip-row">
+                <button type="button" className={`chip ${bookFilter === 'all' ? 'is-on' : ''}`} onClick={() => setBookFilter('all')}>All</button>
+                <button type="button" className={`chip ${bookFilter === 'forever' ? 'is-on' : ''}`} onClick={() => setBookFilter('forever')}>Keep forever</button>
+                <button type="button" className={`chip ${bookFilter === 'year' ? 'is-on' : ''}`} onClick={() => setBookFilter('year')}>This year</button>
+              </div>
+            </div>
+            <div className="on-notebooks__list">
+              {shownBooks.map((nb) => (
+                <button
+                  key={nb.id}
+                  type="button"
+                  data-book-name={nb.name.toLowerCase()}
+                  className={`onenote-book ${notebookId === nb.id ? 'is-on' : ''}`}
+                  onClick={() => {
+                    setNotebookId(nb.id)
+                    setSectionId(nb.sections[0]?.id || 0)
+                  }}
+                >
+                  <span className="onenote-book__dot" style={{ background: nb.color }} />
+                  <span className="wrap-any">{nb.name}</span>
+                  <span className="book-tag">{nb.lifetime ? 'Forever' : 'This year'}</span>
+                </button>
+              ))}
+            </div>
             {notebook?.can_write ? (
-              <>
-                <button type="button" className="btn btn--small btn--primary" onClick={() => void addPage('note')}>Add page</button>
-                <button type="button" className="btn btn--small" onClick={() => void addPage('list')}>Add list</button>
-              </>
+              <button type="button" className="linkish" onClick={() => {
+                setBookName(notebook.name)
+                setBookColor(notebook.color || '#d4b44a')
+                setBookLifetime(Boolean(notebook.lifetime))
+                setBookEdit(true)
+              }}>Notebook settings</button>
             ) : null}
-          </div>
-          {renderTree(null, 0)}
-          {detail?.can_write && currentId ? (
-            <button type="button" className="linkish" onClick={() => void addPage('note', currentId)}>Make subpage</button>
-          ) : null}
-        </aside>
+            <form
+              className="onenote-add"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (!user || !newBook.trim()) return
+                void postJson('/api/notes/notebooks', { name: newBook, scope: 'personal', lifetime: newLifetime, csrf: user.csrf }).then(() => {
+                  setNewBook('')
+                  void loadTree()
+                })
+              }}
+            >
+              <input className="input" value={newBook} onChange={(e) => setNewBook(e.target.value)} placeholder="New notebook" />
+              <button type="submit" className="btn btn--small">Add</button>
+            </form>
+            <label className="check-row">
+              <input type="checkbox" checked={newLifetime} onChange={(e) => setNewLifetime(e.target.checked)} />
+              Keep new notebooks forever
+            </label>
+          </aside>
+        ) : (
+          <button type="button" className="on-rail-shut" onClick={() => setBooksOpen(true)}>Notebooks</button>
+        )}
+        {booksOpen ? (
+          <div
+            className="on-col-grip"
+            title="Drag to widen notebooks"
+            onPointerDown={(e) => startWide(e, booksW, setBooksW)}
+          />
+        ) : null}
+        {pagesOpen ? (
+          <aside className="on-pages is-open" style={{ flex: `0 0 ${pagesW}px` }}>
+            <div className="on-rail-head">
+              <strong>Pages</strong>
+              <button type="button" className="btn btn--small btn--ghost" onClick={() => setPagesOpen(false)}>Hide</button>
+            </div>
+            <div className="row-actions">
+              {notebook?.can_write ? (
+                <>
+                  <button type="button" className="btn btn--small btn--primary" onClick={() => void addPage('note')}>Add page</button>
+                  <button type="button" className="btn btn--small" onClick={() => void addPage('list')}>Add list</button>
+                </>
+              ) : null}
+            </div>
+            {renderTree(null, 0)}
+            {detail?.can_write && currentId ? (
+              <button type="button" className="linkish" onClick={() => void addPage('note', currentId)}>Make subpage</button>
+            ) : null}
+          </aside>
+        ) : (
+          <button type="button" className="on-rail-shut" onClick={() => setPagesOpen(true)}>Pages</button>
+        )}
+        {pagesOpen ? (
+          <div
+            className="on-col-grip"
+            title="Drag to widen pages"
+            onPointerDown={(e) => startWide(e, pagesW, setPagesW)}
+          />
+        ) : null}
         <section className="on-paper">
           {error ? <div className="status status--error">{error}</div> : null}
           {(conflict || hasDraft) ? (
@@ -574,7 +657,7 @@ export function Notes() {
           <>
             <button type="button" className="btn" onClick={() => setBookEdit(false)}>Cancel</button>
             <button type="button" className="btn btn--primary" onClick={() => {
-              void postJson(`/api/notes/notebooks/${notebook.id}`, { name: bookName, color: bookColor, csrf: user.csrf }).then(() => {
+              void postJson(`/api/notes/notebooks/${notebook.id}`, { name: bookName, color: bookColor, lifetime: bookLifetime, csrf: user.csrf }).then(() => {
                 setBookEdit(false)
                 void loadTree()
               })
@@ -587,6 +670,11 @@ export function Notes() {
           <label className="field"><span className="field__label">Color</span>
             <input className="input" type="color" value={bookColor} onChange={(e) => setBookColor(e.target.value)} />
           </label>
+          <label className="check-row">
+            <input type="checkbox" checked={bookLifetime} onChange={(e) => setBookLifetime(e.target.checked)} />
+            Keep forever — not tied to a school year
+          </label>
+          <p className="muted">Turn this off to keep the notebook only for this school year. Turn it on to promote class notes so they stay after the year rolls over.</p>
           <p>
             <button type="button" className="btn btn--small" onClick={() => {
               void postJson(`/api/notes/notebooks/${notebook.id}`, { archived: true, csrf: user.csrf }).then(() => {

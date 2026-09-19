@@ -190,7 +190,7 @@ export function Layout() {
           </div>
         </div>
       </header>
-      <main className="main">
+      <main className={`main${location.pathname.startsWith('/notes') || location.pathname.startsWith('/activities') ? ' main--wide' : ''}`}>
         {me?.school_year ? <p className="year-chip">{me.school_year}</p> : null}
         <Outlet />
       </main>

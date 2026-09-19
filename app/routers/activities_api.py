@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.activities.registry import all_activities, get_activity, public_card
+from app.activities.schema import ALL_MODES
 from app.database import get_db
 from app.dependencies import first_student
 from app.routers.api import _csrf_bad, _err, _must_user
@@ -59,6 +60,28 @@ def results(request: Request, db: Session = Depends(get_db)):
     return {"results": svc.teacher_results(db)}
 
 
+@router.get("/struggle")
+def struggle_all(request: Request, activity_id: str = "", db: Session = Depends(get_db)):
+    user = _must_user(request, db)
+    if isinstance(user, JSONResponse):
+        return user
+    if user.is_teacher:
+        return {"students": svc.teacher_struggle(db, activity_id or None)}
+    student = svc.student_for(db, user)
+    if not student:
+        return {"students": []}
+    aid = activity_id or "us-state-capitals"
+    return {
+        "students": [
+            {
+                "student_id": student.id,
+                "name": student.display_name,
+                "activities": [{"activity_id": aid, "hard": [i for i in svc.item_stats(db, student.id, aid) if i["wrong"] > 0]}],
+            }
+        ]
+    }
+
+
 @router.get("/{activity_id}")
 def get_one(activity_id: str, request: Request, db: Session = Depends(get_db)):
     user = _must_user(request, db)
@@ -77,6 +100,7 @@ def get_one(activity_id: str, request: Request, db: Session = Depends(get_db)):
         "history": svc.history(db, student_id=student_id if user.is_student else None, user_id=user.id, activity_id=activity_id)
         if user.is_student or user.is_teacher
         else [],
+        "struggle": svc.item_stats(db, student_id, activity_id) if student_id else [],
     }
 
 
@@ -90,7 +114,7 @@ def save_attempt(activity_id: str, body: AttemptBody, request: Request, db: Sess
     if not get_activity(activity_id):
         return _err("That activity is gone.", 404)
     mode = (body.mode or "").strip()
-    if mode not in {"study", "find_on_map", "name_the_capital", "flashcards", "quiz", "match"}:
+    if mode not in ALL_MODES:
         return _err("Pick a mode first.")
     detail = dict(body.detail or {})
     if body.visited:
@@ -109,6 +133,22 @@ def save_attempt(activity_id: str, body: AttemptBody, request: Request, db: Sess
     except ValueError as exc:
         return _err(str(exc))
     return {"ok": True, **result}
+
+
+@router.get("/{activity_id}/struggle")
+def struggle_one(activity_id: str, request: Request, student_id: int = 0, db: Session = Depends(get_db)):
+    user = _must_user(request, db)
+    if isinstance(user, JSONResponse):
+        return user
+    if not get_activity(activity_id):
+        return _err("That activity is gone.", 404)
+    sid = student_id if user.is_teacher and student_id else _student_id(db, user)
+    items = svc.item_stats(db, sid, activity_id) if sid else []
+    return {
+        "items": items,
+        "need_work": [row for row in items if row["wrong"] > 0],
+        "strong": [row for row in items if row["seen"] >= 3 and row["miss_rate"] < 25 and row["wrong"] == 0],
+    }
 
 
 @router.get("/{activity_id}/history")

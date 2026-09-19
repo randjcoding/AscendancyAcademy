@@ -50,6 +50,7 @@ export function StudentHome() {
       {acts.length ? (
         <section className="panel">
           <h2>Practice</h2>
+          <p><Link to="/activities/progress">See what needs work</Link></p>
           <ul className="plain-list">
             {acts.map((a) => (
               <li key={a.activity_id}>

@@ -38,7 +38,19 @@ def test_catalog_has_fifty_unique_capitals():
     assert len(places) == 50
     assert len({p.id for p in places}) == 50
     assert len({p.capital for p in places}) == 50
-    assert set(activity.modes) >= {"study", "find_on_map", "name_the_capital", "flashcards", "quiz", "match"}
+    assert set(activity.modes) >= {
+        "study",
+        "find_on_map",
+        "find_the_state",
+        "name_the_capital",
+        "flashcards",
+        "quiz",
+        "match",
+        "type_it",
+        "city_trap",
+        "neighbor_hunt",
+    }
+    assert all(p.trap_city for p in places)
 
 
 def test_star_thresholds():
@@ -77,6 +89,36 @@ def test_student_can_play_and_record():
         )
         assert match.status_code == 200, match.text
         assert match.json()["stars_earned"] == 3
+        typed = client.post(
+            "/api/activities/us-state-capitals/attempt",
+            json={
+                "csrf": greg["csrf"],
+                "mode": "type_it",
+                "score": 3,
+                "total": 5,
+                "time_taken_seconds": 20,
+                "detail": {
+                    "batch": 5,
+                    "items": [
+                        {"id": "NY", "correct": False},
+                        {"id": "IL", "correct": False},
+                        {"id": "TX", "correct": True},
+                    ],
+                },
+            },
+        )
+        assert typed.status_code == 200, typed.text
+        struggle = client.get("/api/activities/us-state-capitals/struggle")
+        assert struggle.status_code == 200, struggle.text
+        need = {row["id"] for row in struggle.json()["need_work"]}
+        assert "NY" in need
+        assert "IL" in need
+        find_state = client.post(
+            "/api/activities/us-state-capitals/attempt",
+            json={"csrf": greg["csrf"], "mode": "find_the_state", "score": 50, "total": 50, "time_taken_seconds": 80},
+        )
+        assert find_state.status_code == 200, find_state.text
+        assert find_state.json()["stars_earned"] == 3
         attend = client.get("/api/attendance")
         assert attend.status_code == 200
         notes = client.get("/api/notes/tree")

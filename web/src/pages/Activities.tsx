@@ -22,7 +22,7 @@ type ResultRow = {
   student_id: number
   name: string
   streak: number
-  activities: { activity_id: string; best_stars: number; best_accuracy: number; plays: number }[]
+  activities: { activity_id: string; best_stars: number; best_accuracy: number; plays: number; hard?: { name: string }[] }[]
 }
 
 export function Activities() {
@@ -59,7 +59,10 @@ export function Activities() {
           <h1>Activities</h1>
           <p className="muted">Practice until it sticks. Stars stay with you.</p>
         </div>
-        {streak ? <p className="streak-chip">{streak} day streak</p> : null}
+        <div className="btn-row">
+          {streak ? <p className="streak-chip">{streak} day streak</p> : null}
+          <Link to="/activities/progress" className="btn">What needs work</Link>
+        </div>
       </header>
       {error ? <div className="status status--error">{error}</div> : null}
       <section className="card-grid">
@@ -99,7 +102,10 @@ export function Activities() {
                 <strong className="wrap-any">{r.name}</strong>
                 <span className="muted">
                   {r.streak ? `${r.streak} day streak · ` : ''}
-                  {r.activities.map((a) => `${a.activity_id}: ${a.best_stars}★`).join(' · ') || 'No plays yet'}
+                  {r.activities.map((a) => {
+                    const hard = a.hard || []
+                    return `${a.activity_id}: ${a.best_stars}★${hard.length ? ` · needs work: ${hard.slice(0, 4).map((h) => h.name).join(', ')}` : ''}`
+                  }).join(' · ') || 'No plays yet'}
                 </span>
               </li>
             ))}

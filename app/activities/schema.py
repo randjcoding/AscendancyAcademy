@@ -23,6 +23,7 @@ class MapPlace(BaseModel):
     capital_phonetic: str = ""
     tip: str = ""
     region: str = ""
+    trap_city: str = ""
 
 
 class ActivityDef(BaseModel):
@@ -56,4 +57,27 @@ def stars_for(criteria: PassingCriteria, *, finished: bool, accuracy: float) -> 
 
 
 AI_PURPOSES = ("read_pages", "make_test")
-ModeName = Literal["study", "find_on_map", "name_the_capital", "flashcards", "quiz", "match"]
+ModeName = Literal[
+    "study",
+    "find_on_map",
+    "find_the_state",
+    "name_the_capital",
+    "flashcards",
+    "quiz",
+    "match",
+    "type_it",
+    "city_trap",
+    "neighbor_hunt",
+]
+ALL_MODES = (
+    "study",
+    "find_on_map",
+    "find_the_state",
+    "name_the_capital",
+    "flashcards",
+    "quiz",
+    "match",
+    "type_it",
+    "city_trap",
+    "neighbor_hunt",
+)

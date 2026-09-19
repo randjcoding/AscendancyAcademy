@@ -7,9 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Course, NoteBox, NoteHistory, NotePage, NoteSection, Notebook, ShareScope, User
+from app.services import attendance as attendance_svc
 from app.services.clock import house_now
 from app.services.text import html_to_plain
-from app.services.visibility import class_ids_for, teacher_course_ids
+from app.services.visibility import can_see_notebook, class_ids_for, teacher_course_ids
 
 MAX_PAGE_DEPTH = 5
 HISTORY_KEEP = 100
@@ -37,6 +38,8 @@ def _ensure_notebook(
     owner_user_id: int | None,
     course_id: int | None,
     sort_order: int,
+    lifetime: bool = True,
+    school_year_id: int | None = None,
 ) -> Notebook:
     q = select(Notebook).where(Notebook.scope == scope, Notebook.deleted_at.is_(None))
     if scope == ShareScope.PERSONAL:
@@ -45,7 +48,7 @@ def _ensure_notebook(
         q = q.where(Notebook.course_id == course_id)
     else:
         q = q.where(Notebook.course_id.is_(None), Notebook.owner_user_id.is_(None))
-    row = db.scalar(q)
+    row = db.scalars(q.order_by(Notebook.id)).first()
     if row:
         if row.name != name:
             row.name = name
@@ -57,6 +60,8 @@ def _ensure_notebook(
         owner_user_id=owner_user_id,
         course_id=course_id,
         sort_order=sort_order,
+        lifetime=lifetime,
+        school_year_id=None if lifetime else school_year_id,
     )
     db.add(row)
     db.flush()
@@ -64,7 +69,15 @@ def _ensure_notebook(
     return row
 
 
+def visible_this_year(notebook: Notebook, year_id: int | None) -> bool:
+    if notebook.lifetime or not notebook.school_year_id:
+        return True
+    return bool(year_id) and notebook.school_year_id == year_id
+
+
 def ensure_notebooks(db: Session, user: User) -> list[Notebook]:
+    year = attendance_svc.current_year(db)
+    year_id = year.id if year else None
     personal = _ensure_notebook(
         db,
         name=user.first_name.strip() or user.full_name,
@@ -72,6 +85,7 @@ def ensure_notebooks(db: Session, user: User) -> list[Notebook]:
         owner_user_id=user.id,
         course_id=None,
         sort_order=0,
+        lifetime=True,
     )
     school = _ensure_notebook(
         db,
@@ -80,6 +94,7 @@ def ensure_notebooks(db: Session, user: User) -> list[Notebook]:
         owner_user_id=None,
         course_id=None,
         sort_order=10,
+        lifetime=True,
     )
     out = [personal, school]
     if user.is_teacher:
@@ -95,6 +110,8 @@ def ensure_notebooks(db: Session, user: User) -> list[Notebook]:
                     owner_user_id=None,
                     course_id=course.id,
                     sort_order=20 + course.id,
+                    lifetime=False,
+                    school_year_id=course.school_year_id or year_id,
                 )
             )
     else:
@@ -112,7 +129,16 @@ def ensure_notebooks(db: Session, user: User) -> list[Notebook]:
             if existing:
                 out.append(existing)
     db.flush()
-    return out
+    extras = db.scalars(
+        select(Notebook).where(
+            Notebook.deleted_at.is_(None),
+            Notebook.id.notin_([nb.id for nb in out]),
+        )
+    ).all()
+    for nb in extras:
+        if can_see_notebook(db, user, nb):
+            out.append(nb)
+    return [nb for nb in out if visible_this_year(nb, year_id)]
 
 
 def page_depth(db: Session, page: NotePage) -> int:

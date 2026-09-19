@@ -347,3 +347,35 @@ def test_board_today_includes_overdue_excludes_tomorrow():
         assert "Tomorrow chore" not in titles
         late = [i["title"] for i in board.json()["late"]]
         assert "Late pages" in late
+
+
+def test_keep_forever_notebook_roundtrip():
+    with TestClient(app) as client:
+        greg = _greg(client)
+        made = client.post(
+            "/api/notes/notebooks",
+            json={"name": "Forever facts", "scope": "personal", "lifetime": True, "csrf": greg["csrf"]},
+        )
+        assert made.status_code == 200, made.text
+        assert made.json()["notebook"]["lifetime"] is True
+        book_id = made.json()["notebook"]["id"]
+        tree = client.get("/api/notes/tree")
+        assert tree.status_code == 200
+        row = next(b for b in tree.json()["notebooks"] if b["id"] == book_id)
+        assert row["lifetime"] is True
+        parked = client.post(
+            f"/api/notes/notebooks/{book_id}",
+            json={"lifetime": False, "csrf": greg["csrf"]},
+        )
+        assert parked.status_code == 200, parked.text
+        tree2 = client.get("/api/notes/tree")
+        row2 = next(b for b in tree2.json()["notebooks"] if b["id"] == book_id)
+        assert row2["lifetime"] is False
+        kept = client.post(
+            f"/api/notes/notebooks/{book_id}",
+            json={"lifetime": True, "csrf": greg["csrf"]},
+        )
+        assert kept.status_code == 200, kept.text
+        tree3 = client.get("/api/notes/tree")
+        row3 = next(b for b in tree3.json()["notebooks"] if b["id"] == book_id)
+        assert row3["lifetime"] is True

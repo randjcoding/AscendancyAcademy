@@ -519,6 +519,10 @@ class Notebook(Base):
     )
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    lifetime: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    school_year_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("school_years.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -866,6 +870,21 @@ class ActivityProgress(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
+
+
+class ActivityItemStat(Base):
+    __tablename__ = "activity_item_stats"
+    __table_args__ = (UniqueConstraint("student_id", "activity_id", "item_id", name="uq_activity_item_stat"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), index=True)
+    activity_id: Mapped[str] = mapped_column(String(80), index=True)
+    item_id: Mapped[str] = mapped_column(String(16), default="")
+    seen: Mapped[int] = mapped_column(Integer, default=0)
+    correct: Mapped[int] = mapped_column(Integer, default=0)
+    wrong: Mapped[int] = mapped_column(Integer, default=0)
+    last_wrong_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
 
 class UserAiGrant(Base):

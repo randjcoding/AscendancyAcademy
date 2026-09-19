@@ -4,6 +4,7 @@ from __future__ import annotations
 from sqlalchemy import inspect, text
 
 from app.database import Base, engine
+from app import models as _models  # noqa: F401 — register tables for create_all
 
 
 def _add_if_missing(table: str, cols: set[str], name: str, ddl: str, adds: list[str]) -> None:
@@ -139,6 +140,20 @@ def ensure_schema() -> None:
             table="notebooks",
             name="archived",
             ddl=f"archived BOOLEAN DEFAULT {bool_false}",
+            adds=adds,
+        )
+        _add_if_missing(
+            cols=cols,
+            table="notebooks",
+            name="lifetime",
+            ddl=f"lifetime BOOLEAN DEFAULT {bool_false}",
+            adds=adds,
+        )
+        _add_if_missing(
+            cols=cols,
+            table="notebooks",
+            name="school_year_id",
+            ddl="school_year_id INTEGER",
             adds=adds,
         )
 

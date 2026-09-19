@@ -14,6 +14,7 @@ from app.config import settings
 from app.database import get_db
 from app.models import NoteBox, NoteHistory, NotePage, NoteSection, Notebook, PageTask, ShareScope, Task
 from app.routers.api import _csrf_bad, _err, _must_user
+from app.services import attendance as attendance_svc
 from app.services.clock import house_now
 from app.services.dates import parse_due
 from app.services.notes import (
@@ -44,6 +45,7 @@ class NotebookBody(BaseModel):
     color: str = "#d4b44a"
     scope: str = "personal"
     course_id: int = 0
+    lifetime: bool = True
 
 
 class NotebookPatchBody(BaseModel):
@@ -53,6 +55,7 @@ class NotebookPatchBody(BaseModel):
     archived: bool | None = None
     scope: str = ""
     course_id: int = 0
+    lifetime: bool | None = None
 
 
 class SectionBody(BaseModel):
@@ -219,6 +222,8 @@ def notes_tree(request: Request, trash: int = 0, db: Session = Depends(get_db)):
                 "scope": nb.scope,
                 "course_id": nb.course_id,
                 "archived": bool(getattr(nb, "archived", False)),
+                "lifetime": bool(getattr(nb, "lifetime", False)),
+                "school_year_id": nb.school_year_id,
                 "can_write": can_write_notebook(db, user, nb),
                 "sections": [
                     {"id": s.id, "name": s.name, "color": getattr(s, "color", None) or "#2d6a4f", "sort_order": s.sort_order}
@@ -599,19 +604,32 @@ def create_notebook(body: NotebookBody, request: Request, db: Session = Depends(
         scope = ShareScope.PERSONAL
     if not user.is_teacher:
         scope = ShareScope.PERSONAL
+    year = attendance_svc.current_year(db)
+    keep = bool(body.lifetime)
     nb = Notebook(
         name=body.name.strip() or "Notebook",
         color=body.color or "#d4b44a",
         scope=scope,
         owner_user_id=user.id if scope == ShareScope.PERSONAL else None,
         course_id=body.course_id or None,
+        lifetime=keep,
+        school_year_id=None if keep else (year.id if year else None),
     )
     db.add(nb)
     db.flush()
     db.add(NoteSection(notebook_id=nb.id, name="Pages", color="#2d6a4f"))
     db.commit()
     db.refresh(nb)
-    return {"ok": True, "notebook": {"id": nb.id, "name": nb.name, "color": nb.color, "scope": nb.scope}}
+    return {
+        "ok": True,
+        "notebook": {
+            "id": nb.id,
+            "name": nb.name,
+            "color": nb.color,
+            "scope": nb.scope,
+            "lifetime": nb.lifetime,
+        },
+    }
 
 
 @router.post("/notebooks/{notebook_id}")
@@ -630,6 +648,13 @@ def patch_notebook(notebook_id: int, body: NotebookPatchBody, request: Request, 
         nb.color = body.color.strip()[:16]
     if body.archived is not None:
         nb.archived = body.archived
+    if body.lifetime is not None:
+        nb.lifetime = bool(body.lifetime)
+        if nb.lifetime:
+            nb.school_year_id = None
+        elif not nb.school_year_id:
+            year = attendance_svc.current_year(db)
+            nb.school_year_id = year.id if year else None
     if body.scope.strip() and user.is_teacher:
         scope = body.scope.strip().lower()
         if scope in ShareScope.ALL:

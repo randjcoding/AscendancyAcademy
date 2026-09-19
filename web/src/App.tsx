@@ -11,6 +11,7 @@ import { Gradebook } from './pages/Gradebook'
 import { Admin } from './pages/Admin'
 import { Activities } from './pages/Activities'
 import { SignedIn, StudentDeskGate, StudentGate, TeacherGate } from './pages/Guard'
+import { ActivityProgress } from './pages/ActivityProgress'
 import { StateCapitals } from './pages/StateCapitals'
 import { Choose, Login } from './pages/Login'
 import { Password } from './pages/Password'
@@ -50,6 +51,7 @@ export default function App() {
                 <Route path="/admin" element={<Admin />} />
               </Route>
               <Route path="/activities" element={<Activities />} />
+              <Route path="/activities/progress" element={<ActivityProgress />} />
               <Route path="/activities/state-capitals" element={<StateCapitals />} />
               <Route path="/attendance" element={<Attendance />} />
               <Route path="/settings" element={<Settings />} />

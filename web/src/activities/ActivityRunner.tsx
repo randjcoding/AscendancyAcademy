@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { postJson } from '../api'
 import { DrillHud, Stars } from './DrillHud'
 import { MatchBoard } from './MatchBoard'
+import { ModePreview } from './ModePreview'
+import { MODE_INFO, MODE_LABEL, type Mode } from './modes'
+import { USA_NEIGHBORS } from './maps/usaNeighbors'
 import { playFx } from './sound'
 import { StarBurst } from './StarBurst'
 import { UsaMap } from './UsaMap'
@@ -13,6 +16,7 @@ export type Place = {
   capital_phonetic: string
   tip: string
   region: string
+  trap_city?: string
 }
 
 export type ActivityPayload = {
@@ -23,18 +27,18 @@ export type ActivityPayload = {
   best_stars?: number
 }
 
-type Mode = 'study' | 'find_on_map' | 'name_the_capital' | 'flashcards' | 'quiz' | 'match'
-
-const MODE_LABEL: Record<Mode, string> = {
-  study: 'Study the map',
-  find_on_map: 'Find the state',
-  name_the_capital: 'Name the capital',
-  flashcards: 'Speed round',
-  quiz: 'Word quiz',
-  match: 'Match pairs',
+export type StruggleItem = {
+  id: string
+  name: string
+  capital: string
+  seen: number
+  correct: number
+  wrong: number
+  miss_rate: number
 }
 
-const BATCHES = [5, 10, 25, 50] as const
+const BATCH_CHIPS = [5, 10, 25, 50]
+const TIMER_CHIPS = [15, 30, 45, 60, 90, 120]
 
 function shuffle<T>(items: T[]): T[] {
   const copy = [...items]
@@ -52,66 +56,145 @@ function choicesFor(place: Place, all: Place[], field: 'capital' | 'name'): stri
   return shuffle([place[field], ...pool])
 }
 
+function trapChoices(place: Place, all: Place[]): string[] {
+  const trap = place.trap_city || ''
+  const others = shuffle(all.filter((p) => p.id !== place.id)).slice(0, trap ? 2 : 3).map((p) => p.capital)
+  return shuffle([place.capital, trap, ...others].filter(Boolean)).slice(0, 4)
+}
+
+function norm(value: string): string {
+  return value.toLowerCase().replace(/[^a-z]/g, '')
+}
+
+function typedMatch(typed: string, answer: string): boolean {
+  const a = norm(typed)
+  const b = norm(answer)
+  if (!a || a !== b) {
+    if (b.startsWith('saint') && a === `st${b.slice(5)}`) return true
+    if (b.startsWith('st') && a === `saint${b.slice(2)}`) return true
+    return false
+  }
+  return true
+}
+
+function buildDeck(places: Place[], batch: number, hardIds: string[], hardFirst: boolean): Place[] {
+  const n = Math.min(Math.max(1, batch), places.length)
+  if (!hardFirst || !hardIds.length) return shuffle(places).slice(0, n)
+  const hard = shuffle(places.filter((p) => hardIds.includes(p.id)))
+  const rest = shuffle(places.filter((p) => !hardIds.includes(p.id)))
+  return [...hard, ...rest].slice(0, n)
+}
+
 export function ActivityRunner({
   activity,
   csrf,
   soundOn,
+  struggle = [],
 }: {
   activity: ActivityPayload
   csrf: string
   soundOn: boolean
+  struggle?: StruggleItem[]
 }) {
   const [mode, setMode] = useState<Mode | ''>('')
   const [batch, setBatch] = useState(10)
+  const [customCount, setCustomCount] = useState('10')
+  const [timer, setTimer] = useState(60)
+  const [customTimer, setCustomTimer] = useState('60')
   const [showLabels, setShowLabels] = useState(true)
+  const [hardFirst, setHardFirst] = useState(false)
+  const hardIds = struggle.filter((s) => s.wrong > 0).map((s) => s.id)
+
+  const applyCount = (n: number) => {
+    const next = Math.min(50, Math.max(1, Math.round(n) || 1))
+    setBatch(next)
+    setCustomCount(String(next))
+  }
+  const applyTimer = (n: number) => {
+    const next = Math.min(300, Math.max(10, Math.round(n) || 60))
+    setTimer(next)
+    setCustomTimer(String(next))
+  }
 
   if (!mode) {
     return (
       <section className="panel">
         <h2>Pick a way to play</h2>
         <div className="mode-grid">
-          {(Object.keys(MODE_LABEL) as Mode[]).map((m) => (
-            <button key={m} type="button" className="mode-card" onClick={() => setMode(m)}>
-              <strong>{MODE_LABEL[m]}</strong>
-              <span className="muted">
-                {m === 'study' && 'Map on the left, facts on the right. Zoom any region. Names and capitals can sit on the map.'}
-                {m === 'find_on_map' && 'We name a capital. You tap the state.'}
-                {m === 'name_the_capital' && 'We light up a state. You pick its capital.'}
-                {m === 'flashcards' && 'Sixty seconds. How many can you name?'}
-                {m === 'quiz' && 'No map. Multiple choice from the words — states and capitals.'}
-                {m === 'match' && 'Drag a capital onto its state, or the other way around.'}
-              </span>
+          {MODE_INFO.filter((m) => !activity.modes?.length || activity.modes.includes(m.id)).map((m) => (
+            <button key={m.id} type="button" className="mode-card" onClick={() => setMode(m.id)}>
+              <ModePreview mode={m.id} />
+              <strong>{m.title}</strong>
+              <span className="muted">{m.blurb}</span>
             </button>
           ))}
         </div>
         <fieldset className="batch-pick">
-          <legend>How many states this round</legend>
+          <legend>How many this round</legend>
           <div className="btn-row">
-            {BATCHES.map((n) => (
-              <button
-                key={n}
-                type="button"
-                className={`btn ${batch === n ? 'btn--primary' : ''}`}
-                onClick={() => setBatch(n)}
-              >
+            {BATCH_CHIPS.map((n) => (
+              <button key={n} type="button" className={`btn ${batch === n ? 'btn--primary' : ''}`} onClick={() => applyCount(n)}>
                 {n === 50 ? 'All 50' : n}
               </button>
             ))}
           </div>
+          <label className="field">
+            <span className="field__label">Or type any number</span>
+            <input
+              className="input"
+              type="number"
+              min={1}
+              max={50}
+              value={customCount}
+              onChange={(e) => setCustomCount(e.target.value)}
+              onBlur={() => applyCount(Number(customCount))}
+            />
+          </label>
+        </fieldset>
+        <fieldset className="batch-pick">
+          <legend>Speed-round timer</legend>
+          <div className="btn-row">
+            {TIMER_CHIPS.map((n) => (
+              <button key={n} type="button" className={`btn ${timer === n ? 'btn--primary' : ''}`} onClick={() => applyTimer(n)}>
+                {n}s
+              </button>
+            ))}
+          </div>
+          <label className="field">
+            <span className="field__label">Or type seconds</span>
+            <input
+              className="input"
+              type="number"
+              min={10}
+              max={300}
+              value={customTimer}
+              onChange={(e) => setCustomTimer(e.target.value)}
+              onBlur={() => applyTimer(Number(customTimer))}
+            />
+          </label>
         </fieldset>
         <label className="check-row">
           <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
           Show state names and capitals on the study map
         </label>
+        {hardIds.length ? (
+          <label className="check-row">
+            <input type="checkbox" checked={hardFirst} onChange={(e) => setHardFirst(e.target.checked)} />
+            Start with the ones that need work ({hardIds.length})
+          </label>
+        ) : null}
       </section>
     )
   }
   return (
     <Drill
-      key={`${mode}-${batch}`}
+      key={`${mode}-${batch}-${timer}-${hardFirst}`}
       mode={mode}
       batch={batch}
+      timer={timer}
       showLabels={showLabels}
+      hardFirst={hardFirst}
+      hardIds={hardIds}
       activity={activity}
       csrf={csrf}
       soundOn={soundOn}
@@ -123,7 +206,10 @@ export function ActivityRunner({
 function Drill({
   mode,
   batch,
+  timer,
   showLabels,
+  hardFirst,
+  hardIds,
   activity,
   csrf,
   soundOn,
@@ -131,14 +217,20 @@ function Drill({
 }: {
   mode: Mode
   batch: number
+  timer: number
   showLabels: boolean
+  hardFirst: boolean
+  hardIds: string[]
   activity: ActivityPayload
   csrf: string
   soundOn: boolean
   onExit: () => void
 }) {
   const places = activity.content
-  const deck = useMemo(() => shuffle(places).slice(0, Math.min(batch, places.length)), [places, mode, batch])
+  const deck = useMemo(
+    () => buildDeck(places, batch, hardIds, hardFirst),
+    [places, batch, hardIds, hardFirst],
+  )
   const [i, setI] = useState(0)
   const [score, setScore] = useState(0)
   const [streak, setStreak] = useState(0)
@@ -152,12 +244,15 @@ function Drill({
   const [result, setResult] = useState<{ stars: number; accuracy: number } | null>(null)
   const [open, setOpen] = useState<Place | null>(null)
   const [visited, setVisited] = useState<Set<string>>(new Set())
-  const [seconds, setSeconds] = useState(mode === 'flashcards' ? 60 : 0)
+  const [seconds, setSeconds] = useState(mode === 'flashcards' ? timer : 0)
   const [started] = useState(() => Date.now())
   const [opts, setOpts] = useState<string[]>([])
   const [side, setSide] = useState<'state' | 'capital'>('state')
   const [quizAsk, setQuizAsk] = useState<'capital' | 'state'>('capital')
   const [labelsOn, setLabelsOn] = useState(showLabels)
+  const [typed, setTyped] = useState('')
+  const itemLog = useRef<{ id: string; correct: boolean }[]>([])
+  const finished = useRef(false)
 
   const current = deck[i]
 
@@ -184,17 +279,24 @@ function Drill({
 
   useEffect(() => {
     if (!current) return
+    setTyped('')
     if (mode === 'name_the_capital') setOpts(choicesFor(current, places, 'capital'))
+    if (mode === 'city_trap') setOpts(trapChoices(current, places))
     if (mode === 'quiz') {
       const ask = Math.random() < 0.5 ? 'capital' : 'state'
       setQuizAsk(ask)
       setOpts(choicesFor(current, places, ask === 'capital' ? 'capital' : 'name'))
     }
-    if (mode === 'flashcards') setSide(Math.random() < 0.5 ? 'state' : 'capital')
+    if (mode === 'flashcards' || mode === 'type_it') setSide(Math.random() < 0.5 ? 'state' : 'capital')
   }, [i, mode, current, places])
 
+  const logItem = (id: string, correct: boolean) => {
+    itemLog.current = [...itemLog.current, { id, correct }]
+  }
+
   const finish = async (finalScore: number, finalTotal: number, extra: Record<string, unknown> = {}) => {
-    if (done) return
+    if (finished.current) return
+    finished.current = true
     setDone(true)
     const secondsUsed = Math.round((Date.now() - started) / 1000)
     try {
@@ -205,7 +307,7 @@ function Drill({
         total: finalTotal,
         time_taken_seconds: secondsUsed,
         visited: visited.size,
-        detail: { ...extra, batch },
+        detail: { ...extra, batch, timer, items: extra.items || itemLog.current },
       })
       setResult({ stars: res.stars_earned, accuracy: res.accuracy })
       if (res.stars_earned >= 2) playFx('star', soundOn)
@@ -223,9 +325,10 @@ function Drill({
     setStreak((n) => n + 1)
     setMisses(0)
     setTries(0)
+    logItem(id, true)
   }
 
-  const markWrong = (id: string) => {
+  const markWrong = (id: string, advanceLog = false) => {
     playFx('miss', soundOn)
     setShake(true)
     window.setTimeout(() => setShake(false), 400)
@@ -233,6 +336,7 @@ function Drill({
     setStreak(0)
     setMisses((n) => n + 1)
     setTries((n) => n + 1)
+    if (advanceLog) logItem(id, false)
   }
 
   const next = (nextScore = score + 1) => {
@@ -246,6 +350,12 @@ function Drill({
     setStatus({})
   }
 
+  const neighborOk = (id: string, place: Place) => {
+    const nextDoor = USA_NEIGHBORS[place.id] || []
+    if (!nextDoor.length) return id === place.id
+    return nextDoor.includes(id)
+  }
+
   const onMapPick = (id: string) => {
     if (done) return
     if (mode === 'study') {
@@ -256,14 +366,17 @@ function Drill({
       }
       return
     }
-    if (mode !== 'find_on_map' || !current) return
+    if (!current) return
+    if (mode !== 'find_on_map' && mode !== 'find_the_state' && mode !== 'neighbor_hunt') return
     setPicked(id)
-    if (id === current.id) {
-      markRight(id)
+    const ok = mode === 'neighbor_hunt' ? neighborOk(id, current) : id === current.id
+    if (ok) {
+      markRight(current.id)
       window.setTimeout(() => next(score + 1), 550)
     } else {
-      markWrong(id)
-      if (tries + 1 >= 2) {
+      const lastTry = tries + 1 >= 2
+      markWrong(current.id, lastTry)
+      if (lastTry) {
         setStatus((s) => ({ ...s, [current.id]: 'right', [id]: 'wrong' }))
         window.setTimeout(() => next(score), 900)
       }
@@ -276,8 +389,9 @@ function Drill({
       markRight(id)
       window.setTimeout(() => next(score + 1), 450)
     } else {
-      markWrong(id)
-      if (tries + 1 >= 2) window.setTimeout(() => next(score), 800)
+      const lastTry = tries + 1 >= 2
+      markWrong(id, lastTry)
+      if (lastTry) window.setTimeout(() => next(score), 800)
     }
   }
 
@@ -287,8 +401,21 @@ function Drill({
       markRight(current.id)
       window.setTimeout(() => next(score + 1), 300)
     } else {
-      markWrong(current.id)
+      markWrong(current.id, true)
       window.setTimeout(() => next(score), 300)
+    }
+  }
+
+  const submitType = () => {
+    if (!current || done) return
+    const right = side === 'state' ? current.capital : current.name
+    if (typedMatch(typed, right)) {
+      markRight(current.id)
+      window.setTimeout(() => next(score + 1), 350)
+    } else {
+      const lastTry = tries + 1 >= 2
+      markWrong(current.id, lastTry)
+      if (lastTry) window.setTimeout(() => next(score), 800)
     }
   }
 
@@ -302,7 +429,7 @@ function Drill({
         </p>
         {mode !== 'study' ? (
           <p className="muted">
-            {score} right of {deck.length} · {Math.round(result.accuracy)}%
+            {score} right of {mode === 'flashcards' ? Math.max(score, 1) : deck.length} · {Math.round(result.accuracy)}%
           </p>
         ) : (
           <p className="muted">You opened {visited.size} states.</p>
@@ -319,8 +446,9 @@ function Drill({
     )
   }
 
-  const usesMap = mode === 'study' || mode === 'find_on_map' || mode === 'name_the_capital'
+  const usesMap = mode === 'study' || mode === 'find_on_map' || mode === 'find_the_state' || mode === 'name_the_capital' || mode === 'neighbor_hunt'
   const stateCard = open || (mode === 'name_the_capital' ? current : null)
+  const unlabeled = mode === 'find_the_state' || mode === 'find_on_map' || mode === 'neighbor_hunt'
 
   return (
     <section className={`panel drill ${shake ? 'is-shake' : ''} ${pulse ? 'is-pulse' : ''}`}>
@@ -347,6 +475,18 @@ function Drill({
           Find the state whose capital is <strong>{current.capital}</strong>
         </p>
       ) : null}
+      {mode === 'find_the_state' && current ? (
+        <p className="prompt-line">
+          Click <strong>{current.name}</strong>
+        </p>
+      ) : null}
+      {mode === 'neighbor_hunt' && current ? (
+        <p className="prompt-line">
+          {(USA_NEIGHBORS[current.id] || []).length
+            ? <>Click a state that touches <strong>{current.name}</strong></>
+            : <>This state does not touch another state. Click <strong>{current.name}</strong>.</>}
+        </p>
+      ) : null}
       {mode === 'name_the_capital' && current ? (
         <p className="prompt-line">
           What is the capital of <strong>{current.name}</strong>?
@@ -361,7 +501,12 @@ function Drill({
           )}
         </p>
       ) : null}
-      {mode === 'flashcards' && current ? (
+      {mode === 'city_trap' && current ? (
+        <p className="prompt-line">
+          What is the capital of <strong>{current.name}</strong>? Watch out for the famous city.
+        </p>
+      ) : null}
+      {(mode === 'flashcards' || mode === 'type_it') && current ? (
         <p className="prompt-line">
           {side === 'state' ? (
             <>Capital of <strong>{current.name}</strong>?</>
@@ -380,6 +525,7 @@ function Drill({
             status={status}
             regionTint={mode === 'study'}
             labels={mode === 'study' && labelsOn}
+            tips={mode === 'study'}
             onPick={onMapPick}
           />
           <aside className="state-card state-card--side">
@@ -397,6 +543,8 @@ function Drill({
                 <p className="muted">{stateCard.capital_phonetic}</p>
                 <p className="wrap-any">{stateCard.tip}</p>
               </>
+            ) : unlabeled ? (
+              <p className="muted">No names on the map. Use the prompt, then tap the state.</p>
             ) : (
               <p className="muted">Tap a state to see its capital, how to say it, and a memory tip.</p>
             )}
@@ -413,14 +561,14 @@ function Drill({
         </div>
       ) : null}
 
-      {mode === 'quiz' && current ? (
+      {(mode === 'quiz' || mode === 'city_trap') && current ? (
         <div className="choice-grid choice-grid--big">
           {opts.map((c) => (
             <button
               key={c}
               type="button"
               className="btn"
-              onClick={() => pickText(c, quizAsk === 'capital' ? current.capital : current.name, current.id)}
+              onClick={() => pickText(c, mode === 'city_trap' || quizAsk === 'capital' ? current.capital : current.name, current.id)}
             >
               {c}
             </button>
@@ -428,10 +576,32 @@ function Drill({
         </div>
       ) : null}
 
+      {mode === 'type_it' && current ? (
+        <form
+          className="type-it"
+          onSubmit={(e) => {
+            e.preventDefault()
+            submitType()
+          }}
+        >
+          <label className="field">
+            <span className="field__label">Type your answer</span>
+            <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus autoComplete="off" />
+          </label>
+          <button type="submit" className="btn btn--primary">Check</button>
+          {tries > 0 && !typedMatch(typed, side === 'state' ? current.capital : current.name) ? (
+            <p className="muted">
+              {tries >= 2 ? `${current.name} — ${current.capital}` : 'Not quite. Try once more.'}
+            </p>
+          ) : null}
+        </form>
+      ) : null}
+
       {mode === 'match' ? (
         <MatchBoard
           places={deck}
           done={done}
+          onItem={(id, correct) => logItem(id, correct)}
           onScore={(right, total, finished) => {
             setScore(right)
             if (right > score) {
@@ -472,6 +642,21 @@ function Drill({
       {mode === 'find_on_map' && tries >= 2 && current ? (
         <p className="muted">
           {current.capital} is the capital of {current.name}.
+        </p>
+      ) : null}
+      {mode === 'find_the_state' && tries >= 2 && current ? (
+        <p className="muted">{current.name} is highlighted now.</p>
+      ) : null}
+      {mode === 'neighbor_hunt' && tries >= 2 && current ? (
+        <p className="muted">
+          {(USA_NEIGHBORS[current.id] || []).length
+            ? `${current.name} touches ${(USA_NEIGHBORS[current.id] || []).join(', ')}.`
+            : `${current.name} stands alone.`}
+        </p>
+      ) : null}
+      {mode === 'city_trap' && tries >= 2 && current ? (
+        <p className="muted">
+          {current.capital} is the capital. {current.trap_city ? `${current.trap_city} is the city people mix up.` : ''}
         </p>
       ) : null}
 

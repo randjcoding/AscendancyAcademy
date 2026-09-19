@@ -2,20 +2,22 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api'
 import { useAuth } from '../Auth'
-import { ActivityRunner, type ActivityPayload } from '../activities/ActivityRunner'
+import { ActivityRunner, type ActivityPayload, type StruggleItem } from '../activities/ActivityRunner'
 import { Stars } from '../activities/DrillHud'
 
 export function StateCapitals() {
   const { user } = useAuth()
   const [activity, setActivity] = useState<ActivityPayload | null>(null)
   const [stars, setStars] = useState(0)
+  const [struggle, setStruggle] = useState<StruggleItem[]>([])
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api<{ activity: ActivityPayload }>('/api/activities/us-state-capitals')
+    api<{ activity: ActivityPayload; struggle?: StruggleItem[] }>('/api/activities/us-state-capitals')
       .then((d) => {
         setActivity(d.activity)
         setStars(d.activity.best_stars || 0)
+        setStruggle(d.struggle || [])
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load that activity.'))
   }, [])
@@ -27,15 +29,24 @@ export function StateCapitals() {
       <header className="page-head">
         <div>
           <h1>{activity.title}</h1>
-          <p className="muted">Fifty states. Study the map, take a word quiz, or match capitals. Progress stays with you.</p>
+          <p className="muted">Learn the states and the capitals. Click them, type them, and watch the ones that keep slipping.</p>
         </div>
         <div>
           <Stars count={stars} />
-          <p><Link to="/activities" className="btn btn--ghost">All activities</Link></p>
+          <p className="btn-row">
+            <Link to="/activities/progress" className="btn">What needs work</Link>
+            <Link to="/activities" className="btn btn--ghost">All activities</Link>
+          </p>
         </div>
       </header>
       {error ? <div className="status status--error">{error}</div> : null}
-      <ActivityRunner activity={activity} csrf={user?.csrf || ''} soundOn={user?.sound_enabled !== false} />
+      {struggle.filter((s) => s.wrong > 0).length ? (
+        <p className="muted">
+          {struggle.filter((s) => s.wrong > 0).length} states still need work.{' '}
+          <Link to="/activities/progress">See the list</Link>
+        </p>
+      ) : null}
+      <ActivityRunner activity={activity} csrf={user?.csrf || ''} soundOn={user?.sound_enabled !== false} struggle={struggle} />
     </>
   )
 }

@@ -6,10 +6,12 @@ export function MatchBoard({
   places,
   done,
   onScore,
+  onItem,
 }: {
   places: MatchPlace[]
   done: boolean
   onScore: (right: number, total: number, finished: boolean) => void
+  onItem?: (id: string, correct: boolean) => void
 }) {
   const capitals = useMemo(() => {
     const copy = places.map((p) => ({ id: p.id, text: p.capital }))
@@ -27,6 +29,7 @@ export function MatchBoard({
   const tryPair = (stateId: string, capitalId: string) => {
     if (done || used.has(stateId) || used.has(`c-${capitalId}`)) return
     const ok = stateId === capitalId
+    onItem?.(stateId, ok)
     setMatched((m) => ({ ...m, [stateId]: ok ? 'right' : 'wrong' }))
     if (ok) {
       const next = new Set(used)

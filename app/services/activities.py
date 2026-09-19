@@ -2,14 +2,14 @@
 from __future__ import annotations
 
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.activities.registry import get_activity
 from app.activities.schema import stars_for
-from app.models import ActivityAttempt, ActivityProgress, Student, User, UserAiGrant
+from app.models import ActivityAttempt, ActivityItemStat, ActivityProgress, Student, User, UserAiGrant
 from app.services.clock import house_today
 
 
@@ -104,6 +104,8 @@ def record_attempt(
     progress = None
     if student:
         progress = _bump_progress(db, student.id, activity_id, accuracy, stars, finished)
+        if mode != "study":
+            _record_item_stats(db, student.id, activity_id, detail or {})
     db.commit()
     db.refresh(attempt)
     return {
@@ -161,6 +163,99 @@ def _bump_progress(
     return row
 
 
+def _record_item_stats(db: Session, student_id: int, activity_id: str, detail: dict) -> None:
+    raw = detail.get("items")
+    if not isinstance(raw, list):
+        return
+    now = datetime.utcnow()
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        item_id = str(entry.get("id") or "").strip()[:16]
+        if not item_id:
+            continue
+        correct = bool(entry.get("correct"))
+        row = db.scalar(
+            select(ActivityItemStat).where(
+                ActivityItemStat.student_id == student_id,
+                ActivityItemStat.activity_id == activity_id,
+                ActivityItemStat.item_id == item_id,
+            )
+        )
+        if not row:
+            row = ActivityItemStat(
+                student_id=student_id,
+                activity_id=activity_id,
+                item_id=item_id,
+                seen=0,
+                correct=0,
+                wrong=0,
+            )
+            db.add(row)
+        row.seen = (row.seen or 0) + 1
+        row.last_seen_at = now
+        if correct:
+            row.correct = (row.correct or 0) + 1
+        else:
+            row.wrong = (row.wrong or 0) + 1
+            row.last_wrong_at = now
+    db.flush()
+
+
+def item_stats(db: Session, student_id: int, activity_id: str) -> list[dict]:
+    activity = get_activity(activity_id)
+    places = {p.id: p for p in activity.places()} if activity else {}
+    rows = db.scalars(
+        select(ActivityItemStat).where(
+            ActivityItemStat.student_id == student_id,
+            ActivityItemStat.activity_id == activity_id,
+        )
+    ).all()
+    out = []
+    for row in rows:
+        place = places.get(row.item_id)
+        seen = row.seen or 0
+        miss = round(((row.wrong or 0) / seen) * 100, 1) if seen else 0.0
+        out.append(
+            {
+                "id": row.item_id,
+                "name": place.name if place else row.item_id,
+                "capital": place.capital if place else "",
+                "seen": seen,
+                "correct": row.correct or 0,
+                "wrong": row.wrong or 0,
+                "miss_rate": miss,
+                "last_wrong_at": row.last_wrong_at.isoformat() if row.last_wrong_at else "",
+            }
+        )
+    out.sort(key=lambda item: (item["wrong"] == 0, -item["miss_rate"], -item["wrong"], item["name"]))
+    return out
+
+
+def teacher_struggle(db: Session, activity_id: str | None = None) -> list[dict]:
+    students = db.scalars(select(Student).order_by(Student.id)).all()
+    out = []
+    for student in students:
+        q = select(ActivityItemStat.activity_id).where(ActivityItemStat.student_id == student.id)
+        if activity_id:
+            aids = [activity_id]
+        else:
+            aids = sorted({row for row in db.scalars(q).all() if row})
+        activities = []
+        for aid in aids:
+            hard = [item for item in item_stats(db, student.id, aid) if item["wrong"] > 0][:10]
+            if hard:
+                activities.append({"activity_id": aid, "hard": hard})
+        out.append(
+            {
+                "student_id": student.id,
+                "name": student.display_name,
+                "activities": activities,
+            }
+        )
+    return out
+
+
 def history(db: Session, *, student_id: int | None, user_id: int, activity_id: str, limit: int = 20) -> list[dict]:
     q = select(ActivityAttempt).where(ActivityAttempt.activity_id == activity_id)
     if student_id:
@@ -200,6 +295,7 @@ def teacher_results(db: Session) -> list[dict]:
                         "best_stars": r.best_stars,
                         "best_accuracy": r.best_accuracy,
                         "plays": r.plays,
+                        "hard": [item for item in item_stats(db, student.id, r.activity_id) if item["wrong"] > 0][:8],
                     }
                     for r in rows
                 ],
