@@ -90,7 +90,7 @@ def save_attempt(activity_id: str, body: AttemptBody, request: Request, db: Sess
     if not get_activity(activity_id):
         return _err("That activity is gone.", 404)
     mode = (body.mode or "").strip()
-    if mode not in {"study", "find_on_map", "name_the_capital", "flashcards"}:
+    if mode not in {"study", "find_on_map", "name_the_capital", "flashcards", "quiz", "match"}:
         return _err("Pick a mode first.")
     detail = dict(body.detail or {})
     if body.visited:

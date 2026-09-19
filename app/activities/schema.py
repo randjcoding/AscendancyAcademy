@@ -56,4 +56,4 @@ def stars_for(criteria: PassingCriteria, *, finished: bool, accuracy: float) -> 
 
 
 AI_PURPOSES = ("read_pages", "make_test")
-ModeName = Literal["study", "find_on_map", "name_the_capital", "flashcards"]
+ModeName = Literal["study", "find_on_map", "name_the_capital", "flashcards", "quiz", "match"]

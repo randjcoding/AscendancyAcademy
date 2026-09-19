@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { postJson } from '../api'
 import { DrillHud, Stars } from './DrillHud'
+import { MatchBoard } from './MatchBoard'
 import { playFx } from './sound'
 import { StarBurst } from './StarBurst'
 import { UsaMap } from './UsaMap'
@@ -22,14 +23,18 @@ export type ActivityPayload = {
   best_stars?: number
 }
 
-type Mode = 'study' | 'find_on_map' | 'name_the_capital' | 'flashcards'
+type Mode = 'study' | 'find_on_map' | 'name_the_capital' | 'flashcards' | 'quiz' | 'match'
 
 const MODE_LABEL: Record<Mode, string> = {
   study: 'Study the map',
   find_on_map: 'Find the state',
   name_the_capital: 'Name the capital',
   flashcards: 'Speed round',
+  quiz: 'Word quiz',
+  match: 'Match pairs',
 }
+
+const BATCHES = [5, 10, 25, 50] as const
 
 function shuffle<T>(items: T[]): T[] {
   const copy = [...items]
@@ -40,11 +45,11 @@ function shuffle<T>(items: T[]): T[] {
   return copy
 }
 
-function choicesFor(place: Place, all: Place[]): string[] {
+function choicesFor(place: Place, all: Place[], field: 'capital' | 'name'): string[] {
   const same = all.filter((p) => p.id !== place.id && p.region === place.region)
   const rest = all.filter((p) => p.id !== place.id && p.region !== place.region)
-  const pool = shuffle([...same, ...rest]).slice(0, 3).map((p) => p.capital)
-  return shuffle([place.capital, ...pool])
+  const pool = shuffle([...same, ...rest]).slice(0, 3).map((p) => p[field])
+  return shuffle([place[field], ...pool])
 }
 
 export function ActivityRunner({
@@ -57,6 +62,9 @@ export function ActivityRunner({
   soundOn: boolean
 }) {
   const [mode, setMode] = useState<Mode | ''>('')
+  const [batch, setBatch] = useState(10)
+  const [showLabels, setShowLabels] = useState(true)
+
   if (!mode) {
     return (
       <section className="panel">
@@ -66,35 +74,71 @@ export function ActivityRunner({
             <button key={m} type="button" className="mode-card" onClick={() => setMode(m)}>
               <strong>{MODE_LABEL[m]}</strong>
               <span className="muted">
-                {m === 'study' && 'Hover and tap. Learn the capital, how to say it, and a memory tip.'}
+                {m === 'study' && 'Map on the left, facts on the right. Zoom any region. Names and capitals can sit on the map.'}
                 {m === 'find_on_map' && 'We name a capital. You tap the state.'}
                 {m === 'name_the_capital' && 'We light up a state. You pick its capital.'}
                 {m === 'flashcards' && 'Sixty seconds. How many can you name?'}
+                {m === 'quiz' && 'No map. Multiple choice from the words — states and capitals.'}
+                {m === 'match' && 'Drag a capital onto its state, or the other way around.'}
               </span>
             </button>
           ))}
         </div>
+        <fieldset className="batch-pick">
+          <legend>How many states this round</legend>
+          <div className="btn-row">
+            {BATCHES.map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={`btn ${batch === n ? 'btn--primary' : ''}`}
+                onClick={() => setBatch(n)}
+              >
+                {n === 50 ? 'All 50' : n}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+        <label className="check-row">
+          <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
+          Show state names and capitals on the study map
+        </label>
       </section>
     )
   }
-  return <Drill key={mode} mode={mode} activity={activity} csrf={csrf} soundOn={soundOn} onExit={() => setMode('')} />
+  return (
+    <Drill
+      key={`${mode}-${batch}`}
+      mode={mode}
+      batch={batch}
+      showLabels={showLabels}
+      activity={activity}
+      csrf={csrf}
+      soundOn={soundOn}
+      onExit={() => setMode('')}
+    />
+  )
 }
 
 function Drill({
   mode,
+  batch,
+  showLabels,
   activity,
   csrf,
   soundOn,
   onExit,
 }: {
   mode: Mode
+  batch: number
+  showLabels: boolean
   activity: ActivityPayload
   csrf: string
   soundOn: boolean
   onExit: () => void
 }) {
   const places = activity.content
-  const deck = useMemo(() => shuffle(places), [places, mode])
+  const deck = useMemo(() => shuffle(places).slice(0, Math.min(batch, places.length)), [places, mode, batch])
   const [i, setI] = useState(0)
   const [score, setScore] = useState(0)
   const [streak, setStreak] = useState(0)
@@ -112,6 +156,8 @@ function Drill({
   const [started] = useState(() => Date.now())
   const [opts, setOpts] = useState<string[]>([])
   const [side, setSide] = useState<'state' | 'capital'>('state')
+  const [quizAsk, setQuizAsk] = useState<'capital' | 'state'>('capital')
+  const [labelsOn, setLabelsOn] = useState(showLabels)
 
   const current = deck[i]
 
@@ -137,7 +183,13 @@ function Drill({
   }, [seconds])
 
   useEffect(() => {
-    if (mode === 'name_the_capital' && current) setOpts(choicesFor(current, places))
+    if (!current) return
+    if (mode === 'name_the_capital') setOpts(choicesFor(current, places, 'capital'))
+    if (mode === 'quiz') {
+      const ask = Math.random() < 0.5 ? 'capital' : 'state'
+      setQuizAsk(ask)
+      setOpts(choicesFor(current, places, ask === 'capital' ? 'capital' : 'name'))
+    }
     if (mode === 'flashcards') setSide(Math.random() < 0.5 ? 'state' : 'capital')
   }, [i, mode, current, places])
 
@@ -153,7 +205,7 @@ function Drill({
         total: finalTotal,
         time_taken_seconds: secondsUsed,
         visited: visited.size,
-        detail: extra,
+        detail: { ...extra, batch },
       })
       setResult({ stars: res.stars_earned, accuracy: res.accuracy })
       if (res.stars_earned >= 2) playFx('star', soundOn)
@@ -218,13 +270,13 @@ function Drill({
     }
   }
 
-  const pickCapital = (text: string) => {
-    if (!current || done) return
-    if (text === current.capital) {
-      markRight(current.id)
+  const pickText = (text: string, right: string, id: string) => {
+    if (done) return
+    if (text === right) {
+      markRight(id)
       window.setTimeout(() => next(score + 1), 450)
     } else {
-      markWrong(current.id)
+      markWrong(id)
       if (tries + 1 >= 2) window.setTimeout(() => next(score), 800)
     }
   }
@@ -250,7 +302,7 @@ function Drill({
         </p>
         {mode !== 'study' ? (
           <p className="muted">
-            {score} right · {result.accuracy}%
+            {score} right of {deck.length} · {Math.round(result.accuracy)}%
           </p>
         ) : (
           <p className="muted">You opened {visited.size} states.</p>
@@ -267,6 +319,9 @@ function Drill({
     )
   }
 
+  const usesMap = mode === 'study' || mode === 'find_on_map' || mode === 'name_the_capital'
+  const stateCard = open || (mode === 'name_the_capital' ? current : null)
+
   return (
     <section className={`panel drill ${shake ? 'is-shake' : ''} ${pulse ? 'is-pulse' : ''}`}>
       <div className="panel__head">
@@ -277,7 +332,7 @@ function Drill({
       </div>
       {mode !== 'study' ? (
         <DrillHud
-          progress={mode === 'flashcards' ? score : i}
+          progress={mode === 'flashcards' ? score : mode === 'match' ? score : i}
           total={mode === 'flashcards' ? Math.max(score, 1) : deck.length}
           streak={streak}
           misses={misses}
@@ -297,49 +352,99 @@ function Drill({
           What is the capital of <strong>{current.name}</strong>?
         </p>
       ) : null}
+      {mode === 'quiz' && current ? (
+        <p className="prompt-line">
+          {quizAsk === 'capital' ? (
+            <>What is the capital of <strong>{current.name}</strong>?</>
+          ) : (
+            <>Which state has the capital <strong>{current.capital}</strong>?</>
+          )}
+        </p>
+      ) : null}
       {mode === 'flashcards' && current ? (
         <p className="prompt-line">
           {side === 'state' ? (
-            <>
-              Capital of <strong>{current.name}</strong>?
-            </>
+            <>Capital of <strong>{current.name}</strong>?</>
           ) : (
-            <>
-              Which state has capital <strong>{current.capital}</strong>?
-            </>
+            <>Which state has capital <strong>{current.capital}</strong>?</>
           )}
         </p>
       ) : null}
 
-      {mode === 'study' || mode === 'find_on_map' || mode === 'name_the_capital' ? (
-        <UsaMap
-          places={places}
-          selected={picked || open?.id}
-          highlight={mode === 'name_the_capital' ? current?.id : undefined}
-          status={status}
-          regionTint={mode === 'study'}
-          onPick={onMapPick}
-        />
+      {usesMap ? (
+        <div className="study-desk">
+          <UsaMap
+            places={places}
+            selected={picked || open?.id}
+            highlight={mode === 'name_the_capital' ? current?.id : undefined}
+            status={status}
+            regionTint={mode === 'study'}
+            labels={mode === 'study' && labelsOn}
+            onPick={onMapPick}
+          />
+          <aside className="state-card state-card--side">
+            {mode === 'study' ? (
+              <label className="check-row">
+                <input type="checkbox" checked={labelsOn} onChange={(e) => setLabelsOn(e.target.checked)} />
+                Names and capitals on the map
+              </label>
+            ) : null}
+            {stateCard ? (
+              <>
+                <p className="muted">{stateCard.region}</p>
+                <h3 className="wrap-any">{stateCard.name}</h3>
+                <p className="grade-big wrap-any">{stateCard.capital}</p>
+                <p className="muted">{stateCard.capital_phonetic}</p>
+                <p className="wrap-any">{stateCard.tip}</p>
+              </>
+            ) : (
+              <p className="muted">Tap a state to see its capital, how to say it, and a memory tip.</p>
+            )}
+            {mode === 'name_the_capital' ? (
+              <div className="choice-grid">
+                {opts.map((c) => (
+                  <button key={c} type="button" className="btn" onClick={() => current && pickText(c, current.capital, current.id)}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </aside>
+        </div>
       ) : null}
 
-      {mode === 'study' && open ? (
-        <article className="state-card">
-          <h3 className="wrap-any">{open.name}</h3>
-          <p className="grade-big wrap-any">{open.capital}</p>
-          <p className="muted">{open.capital_phonetic}</p>
-          <p className="wrap-any">{open.tip}</p>
-          <p className="muted">{open.region}</p>
-        </article>
-      ) : null}
-
-      {mode === 'name_the_capital' ? (
-        <div className="choice-grid">
+      {mode === 'quiz' && current ? (
+        <div className="choice-grid choice-grid--big">
           {opts.map((c) => (
-            <button key={c} type="button" className="btn" onClick={() => pickCapital(c)}>
+            <button
+              key={c}
+              type="button"
+              className="btn"
+              onClick={() => pickText(c, quizAsk === 'capital' ? current.capital : current.name, current.id)}
+            >
               {c}
             </button>
           ))}
         </div>
+      ) : null}
+
+      {mode === 'match' ? (
+        <MatchBoard
+          places={deck}
+          done={done}
+          onScore={(right, total, finished) => {
+            setScore(right)
+            if (right > score) {
+              playFx('correct', soundOn)
+              setStreak((n) => n + 1)
+            } else if (!finished) {
+              playFx('miss', soundOn)
+              setStreak(0)
+              setMisses((n) => n + 1)
+            }
+            if (finished) void finish(right, total)
+          }}
+        />
       ) : null}
 
       {mode === 'flashcards' && current ? (

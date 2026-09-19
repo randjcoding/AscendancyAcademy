@@ -38,7 +38,7 @@ def test_catalog_has_fifty_unique_capitals():
     assert len(places) == 50
     assert len({p.id for p in places}) == 50
     assert len({p.capital for p in places}) == 50
-    assert set(activity.modes) >= {"study", "find_on_map", "name_the_capital", "flashcards"}
+    assert set(activity.modes) >= {"study", "find_on_map", "name_the_capital", "flashcards", "quiz", "match"}
 
 
 def test_star_thresholds():
@@ -66,8 +66,25 @@ def test_student_can_play_and_record():
         )
         assert saved.status_code == 200, saved.text
         assert saved.json()["stars_earned"] == 2
+        quiz = client.post(
+            "/api/activities/us-state-capitals/attempt",
+            json={"csrf": greg["csrf"], "mode": "quiz", "score": 8, "total": 10, "time_taken_seconds": 40, "detail": {"batch": 10}},
+        )
+        assert quiz.status_code == 200, quiz.text
+        match = client.post(
+            "/api/activities/us-state-capitals/attempt",
+            json={"csrf": greg["csrf"], "mode": "match", "score": 5, "total": 5, "time_taken_seconds": 30, "detail": {"batch": 5}},
+        )
+        assert match.status_code == 200, match.text
+        assert match.json()["stars_earned"] == 3
         attend = client.get("/api/attendance")
         assert attend.status_code == 200
+        notes = client.get("/api/notes/tree")
+        assert notes.status_code == 200
+        tasks = client.get("/api/tasks?filter=mine")
+        assert tasks.status_code == 200
+        home = client.get("/api/student")
+        assert home.status_code == 200
 
 
 def test_student_blocked_from_admin_and_keys():
@@ -75,6 +92,8 @@ def test_student_blocked_from_admin_and_keys():
         greg = _sit_as(client, UserKind.STUDENT)
         assert client.get("/api/admin/people").status_code == 403
         assert client.post("/api/keys", json={"csrf": greg["csrf"], "name": "Nope", "provider": "openai", "secret": "sk-test"}).status_code == 403
+        assert client.get("/api/courses").status_code == 403
+        assert client.get("/api/tests").status_code == 403
 
 
 def test_gregory_remap_is_idempotent():

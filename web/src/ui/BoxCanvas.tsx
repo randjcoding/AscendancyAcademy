@@ -31,6 +31,22 @@ export type NoteBox = {
   body_html: string
 }
 
+const FontSize = Extension.create({
+  name: 'fontSize',
+  addGlobalAttributes() {
+    return [{
+      types: ['textStyle'],
+      attributes: {
+        fontSize: {
+          default: null,
+          parseHTML: (el) => (el as HTMLElement).style.fontSize || null,
+          renderHTML: (attrs) => (attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {}),
+        },
+      },
+    }]
+  },
+})
+
 const Keys = Extension.create({
   name: 'boxKeys',
   addKeyboardShortcuts() {
@@ -40,6 +56,20 @@ const Keys = Extension.create({
     }
   },
 })
+
+export type SelectedBoxCmds = {
+  setBg: (bg: string) => void
+  front: () => void
+  back: () => void
+  remove: () => void
+  html: () => string
+  setHtml: (html: string) => void
+}
+
+let selectedBoxCmds: SelectedBoxCmds | null = null
+export function getSelectedBoxCmds() {
+  return selectedBoxCmds
+}
 
 const CascadingTaskItem = TaskItem.extend({
   addAttributes() {
@@ -109,7 +139,7 @@ function BoxPane({
   const editor = useEditor(
     {
       extensions: [
-        StarterKit.configure({ heading: { levels: [2, 3] } }),
+        StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
         Underline,
         Link.configure({ openOnClick: false }),
         Image,
@@ -121,6 +151,7 @@ function BoxPane({
         TableHeader,
         TableCell,
         TextStyle,
+        FontSize,
         Color,
         TextAlign.configure({ types: ['heading', 'paragraph'] }),
         Keys,
@@ -169,6 +200,27 @@ function BoxPane({
     if (timer.current) window.clearTimeout(timer.current)
     timer.current = window.setTimeout(() => void flush(), 600)
   }
+
+  useEffect(() => {
+    if (!selected) return
+    selectedBoxCmds = {
+      setBg: (bg) => {
+        onChanged({ ...box, bg })
+        void flush({ bg })
+      },
+      front: () => void flush({ z: box.z + 5 }),
+      back: () => void flush({ z: Math.max(0, box.z - 5) }),
+      remove: () => onDelete(),
+      html: () => editor?.getHTML() || box.body_html || '',
+      setHtml: (html) => {
+        editor?.commands.setContent(html || '<p></p>')
+        queue({ body_html: html, body_json: JSON.stringify(editor?.getJSON() || {}) })
+      },
+    }
+    return () => {
+      selectedBoxCmds = null
+    }
+  }, [selected, box, editor])
 
   const geom = useRef({ x: box.x, y: box.y, w: box.w, h: box.h })
   useEffect(() => {

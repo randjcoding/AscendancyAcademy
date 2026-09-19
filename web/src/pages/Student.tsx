@@ -21,6 +21,7 @@ type GradeRow = {
 export function StudentHome() {
   const [data, setData] = useState<Home | null>(null)
   const [tests, setTests] = useState<AssignedTest[]>([])
+  const [acts, setActs] = useState<{ activity_id: string; title: string; best_stars?: number; best_accuracy?: number; plays?: number }[]>([])
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -29,6 +30,9 @@ export function StudentHome() {
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load home.'))
     api<{ tests: AssignedTest[] }>('/api/tests/student/assigned')
       .then((d) => setTests(d.tests))
+      .catch(() => undefined)
+    api<{ activities: { activity_id: string; title: string; best_stars?: number; best_accuracy?: number; plays?: number }[] }>('/api/activities')
+      .then((d) => setActs(d.activities))
       .catch(() => undefined)
   }, [])
 
@@ -43,6 +47,24 @@ export function StudentHome() {
         </div>
       </header>
       <Board />
+      {acts.length ? (
+        <section className="panel">
+          <h2>Practice</h2>
+          <ul className="plain-list">
+            {acts.map((a) => (
+              <li key={a.activity_id}>
+                <Link to={a.activity_id === 'us-state-capitals' ? '/activities/state-capitals' : '/activities'}>
+                  <span className="wrap-any">{a.title}</span>
+                </Link>
+                <span className="muted">
+                  {a.plays ? `Played ${a.plays}` : 'Not played yet'}
+                  {a.best_accuracy ? ` · best ${Math.round(a.best_accuracy)}%` : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {tests.length ? (
         <section className="panel">
           <h2>Tests to take</h2>

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, postJson } from '../api'
 import { useAuth } from '../Auth'
-import { BoxCanvas, NoteToolbar, type NoteBox } from '../ui/BoxCanvas'
+import { NoteChrome } from '../notes/NoteChrome'
+import { BoxCanvas, getSelectedBoxCmds, type NoteBox } from '../ui/BoxCanvas'
 import { Confirm } from '../ui/Confirm'
 import { Modal } from '../ui/Modal'
 
@@ -61,6 +62,16 @@ export function Notes() {
   const [hideFmt, setHideFmt] = useState(() => {
     try { return localStorage.getItem('aa.notes.hideFmt') === '1' } catch { return false }
   })
+  const [hideMenubar, setHideMenubar] = useState(() => {
+    try { return localStorage.getItem('aa.notes.hideMenu') === '1' } catch { return false }
+  })
+  const [compact, setCompact] = useState(() => {
+    try { return localStorage.getItem('aa.notes.compact') === '1' } catch { return false }
+  })
+  const [booksOpen, setBooksOpen] = useState(true)
+  const [ribbonH, setRibbonH] = useState(56)
+  const [sourceOpen, setSourceOpen] = useState(false)
+  const [sourceHtml, setSourceHtml] = useState('')
   const [bookEdit, setBookEdit] = useState(false)
   const [bookName, setBookName] = useState('')
   const [bookColor, setBookColor] = useState('#d4b44a')
@@ -201,189 +212,272 @@ export function Notes() {
     })
   }
 
+  const persistFlag = (key: string, value: boolean) => {
+    try { localStorage.setItem(key, value ? '1' : '0') } catch { /* ignore */ }
+  }
+
+  const recoverDraft = () => {
+    if (!user || !detail) return
+    let raw = ''
+    try { raw = localStorage.getItem(`aa.note.draft.${detail.page.id}`) || '' } catch { raw = '' }
+    const draft = raw ? JSON.parse(raw) as { title?: string; body_html?: string; body_json?: string } : {}
+    void postJson<{ page: { id: number } }>(`/api/notes/pages/${detail.page.id}/recover-draft`, {
+      csrf: user.csrf,
+      title: draft.title || title,
+      body_html: draft.body_html || '',
+      body_json: draft.body_json || '',
+    }).then((row) => {
+      try { localStorage.removeItem(`aa.note.draft.${detail.page.id}`) } catch { /* ignore */ }
+      setHasDraft(false)
+      setConflict(false)
+      void loadTree()
+      navigate(`/notes/${row.page.id}`)
+    })
+  }
+
   return (
-    <div className="onenote">
-      <aside className="onenote__books panel">
-        <label className="field">
-          <span className="field__label">Find a page</span>
-          <input className="input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Title or words" />
-        </label>
-        {hits.map((hit) => (
-          <button key={hit.id} type="button" className="tree-item" onClick={() => navigate(`/notes/${hit.id}`)}>
-            <span className="wrap-any">{hit.title}</span>
-          </button>
-        ))}
-        {notebooks.map((nb) => (
-          <button
-            key={nb.id}
-            type="button"
-            className={`onenote-book ${notebookId === nb.id ? 'is-on' : ''}`}
-            onClick={() => {
-              setNotebookId(nb.id)
-              setSectionId(nb.sections[0]?.id || 0)
-            }}
-          >
-            <span className="onenote-book__dot" style={{ background: nb.color }} />
-            <span className="wrap-any">{nb.name}</span>
-          </button>
-        ))}
-        {notebook?.can_write ? (
-          <button type="button" className="linkish" onClick={() => {
-            setBookName(notebook.name)
-            setBookColor(notebook.color || '#d4b44a')
-            setBookEdit(true)
-          }}>Notebook settings</button>
-        ) : null}
-        <form
-          className="onenote-add"
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (!user || !newBook.trim()) return
-            void postJson('/api/notes/notebooks', { name: newBook, scope: 'personal', csrf: user.csrf }).then(() => {
-              setNewBook('')
-              void loadTree()
+    <div className={`on-app ${compact ? 'is-compact' : ''}`}>
+      {detail ? (
+        <NoteChrome
+          canWrite={detail.can_write}
+          hideFmt={hideFmt}
+          hideMenubar={hideMenubar}
+          compact={compact}
+          hasDraft={hasDraft}
+          conflict={conflict}
+          pageId={detail.page.id}
+          pageTitle={title}
+          pages={pages.map((p) => ({ id: p.id, title: p.title }))}
+          parentId={detail.page.parent_id}
+          onHideFmt={(v) => { setHideFmt(v); persistFlag('aa.notes.hideFmt', v) }}
+          onHideMenubar={(v) => { setHideMenubar(v); persistFlag('aa.notes.hideMenu', v) }}
+          onCompact={(v) => { setCompact(v); persistFlag('aa.notes.compact', v) }}
+          onHistory={() => {
+            void api<{ history: { id: number; title: string; created_at: string }[] }>(`/api/notes/pages/${detail.page.id}/history`).then((data) => setHistory(data.history))
+          }}
+          onRecover={recoverDraft}
+          onRetry={() => void loadPage(detail.page.id)}
+          onTrash={() => setDrop(detail.page)}
+          onRemind={() => navigate(`/reminders?attach=page&item=${detail.page.id}`)}
+          onMakeTask={() => setMakeTitle(window.getSelection()?.toString() || title)}
+          onBringTasks={() => {
+            void api<{ tasks: { id: number; title: string }[] }>('/api/tasks?filter=mine').then((data) => {
+              setOpenTasks(data.tasks)
+              setBringOpen(true)
             })
           }}
-        >
-          <input className="input" value={newBook} onChange={(e) => setNewBook(e.target.value)} placeholder="New notebook" />
-          <button type="submit" className="btn btn--small">Add</button>
-        </form>
-      </aside>
-      <div className="onenote__main">
-        <div className="onenote__tabs">
-          {(notebook?.sections || []).map((sec) => (
-            <button
-              key={sec.id}
-              type="button"
-              className={`onenote-tab ${sectionId === sec.id ? 'is-on' : ''}`}
-              style={{ ['--tab' as string]: sec.color }}
-              onClick={() => setSectionId(sec.id)}
-              onDoubleClick={() => {
-                if (!user || !notebook?.can_write) return
-                setRenameSec(sec)
-                setRenameVal(sec.name)
-                setSecColor(sec.color || '#2d6a4f')
-              }}
-            >
-              {sec.name}
+          onParent={(id) => {
+            if (!user) return
+            void postJson(`/api/notes/pages/${detail.page.id}/reorder`, {
+              csrf: user.csrf,
+              parent_id: id,
+              section_id: detail.page.section_id || 0,
+              sort_order: detail.page.sort_order,
+            }).then(() => { void loadTree(); void loadPage(detail.page.id) })
+          }}
+          onBoxBg={(bg) => getSelectedBoxCmds()?.setBg(bg)}
+          onBoxFront={() => getSelectedBoxCmds()?.front()}
+          onBoxBack={() => getSelectedBoxCmds()?.back()}
+          onBoxDelete={() => getSelectedBoxCmds()?.remove()}
+          onBoxRemind={() => navigate(`/reminders?attach=page&item=${detail.page.id}`)}
+          onSource={() => {
+            setSourceHtml(getSelectedBoxCmds()?.html() || '')
+            setSourceOpen(true)
+          }}
+        />
+      ) : (
+        <div className="note-workspace-bar">
+          <p className="muted" style={{ padding: '0.5rem 1rem' }}>Pick a notebook, then a page.</p>
+        </div>
+      )}
+      <div className="on-ribbon" style={{ minHeight: ribbonH }}>
+        <div className="on-ribbon__main">
+          <div className="notebook-picker">
+            <button type="button" className="notebook-picker__btn" onClick={() => setBooksOpen((v) => !v)}>
+              <span className="notebook-dot" style={{ background: notebook?.color || 'var(--gold)' }} />
+              <span className="notebook-picker__name wrap-any">{notebook?.name || 'Notebooks'}</span>
+              <span className="notebook-picker__caret">▾</span>
+            </button>
+          </div>
+          <div className="section-tabs-wrap">
+            <nav className="section-tabs">
+              {(notebook?.sections || []).map((sec) => (
+                <button
+                  key={sec.id}
+                  type="button"
+                  className={`onenote-tab ${sectionId === sec.id ? 'is-on' : ''}`}
+                  style={{ ['--tab' as string]: sec.color }}
+                  onClick={() => setSectionId(sec.id)}
+                  onDoubleClick={() => {
+                    if (!user || !notebook?.can_write) return
+                    setRenameSec(sec)
+                    setRenameVal(sec.name)
+                    setSecColor(sec.color || '#2d6a4f')
+                  }}
+                >
+                  {sec.name}
+                </button>
+              ))}
+              {notebook?.can_write && user ? (
+                <button
+                  type="button"
+                  className="section-add__btn"
+                  title="Add section"
+                  onClick={() => void postJson('/api/notes/sections', { notebook_id: notebook.id, name: 'New section', csrf: user.csrf }).then(() => loadTree())}
+                >
+                  +
+                </button>
+              ) : null}
+            </nav>
+          </div>
+          <div className="on-search">
+            <input
+              type="search"
+              className="on-search__input"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search notes, lists, reminders…"
+              autoComplete="off"
+            />
+          </div>
+        </div>
+        <div
+          className="on-ribbon__grip"
+          title="Drag to make more room for sections"
+          onPointerDown={(e) => {
+            const start = e.clientY
+            const startH = ribbonH
+            const move = (ev: PointerEvent) => setRibbonH(Math.min(220, Math.max(48, startH + ev.clientY - start)))
+            const up = () => {
+              document.removeEventListener('pointermove', move)
+              document.removeEventListener('pointerup', up)
+            }
+            document.addEventListener('pointermove', move)
+            document.addEventListener('pointerup', up)
+          }}
+        />
+      </div>
+      {hits.length ? (
+        <div className="on-search-hits">
+          {hits.map((hit) => (
+            <button key={hit.id} type="button" className="tree-item" onClick={() => navigate(`/notes/${hit.id}`)}>
+              <span className="wrap-any">{hit.title}</span>
+              {hit.snippet ? <span className="muted wrap-any">{hit.snippet}</span> : null}
             </button>
           ))}
-          {notebook?.can_write && user ? (
-            <button
-              type="button"
-              className="btn btn--small"
-              onClick={() => void postJson('/api/notes/sections', { notebook_id: notebook.id, name: 'New section', csrf: user.csrf }).then(() => loadTree())}
-            >
-              Add section
-            </button>
-          ) : null}
         </div>
-        <div className="onenote__work">
-          <aside className="onenote__pages panel">
-            <div className="row-actions">
-              {notebook?.can_write ? (
-                <>
-                  <button type="button" className="btn btn--small btn--primary" onClick={() => void addPage('note')}>Add page</button>
-                  <button type="button" className="btn btn--small" onClick={() => void addPage('list')}>Add list</button>
-                </>
+      ) : null}
+      <div className="on-body">
+        <aside className={`on-notebooks ${booksOpen ? 'is-open' : ''}`}>
+          <div className="on-notebooks__head">
+            <input className="input on-notebooks__search" placeholder="Search notebooks…" onChange={(e) => {
+              const q = e.target.value.toLowerCase()
+              document.querySelectorAll<HTMLElement>('[data-book-name]').forEach((el) => {
+                el.hidden = q.length > 0 && !((el.dataset.bookName || '').includes(q))
+              })
+            }} />
+          </div>
+          <div className="on-notebooks__list">
+            {notebooks.map((nb) => (
+              <button
+                key={nb.id}
+                type="button"
+                data-book-name={nb.name.toLowerCase()}
+                className={`onenote-book ${notebookId === nb.id ? 'is-on' : ''}`}
+                onClick={() => {
+                  setNotebookId(nb.id)
+                  setSectionId(nb.sections[0]?.id || 0)
+                }}
+              >
+                <span className="onenote-book__dot" style={{ background: nb.color }} />
+                <span className="wrap-any">{nb.name}</span>
+              </button>
+            ))}
+          </div>
+          {notebook?.can_write ? (
+            <button type="button" className="linkish" onClick={() => {
+              setBookName(notebook.name)
+              setBookColor(notebook.color || '#d4b44a')
+              setBookEdit(true)
+            }}>Notebook settings</button>
+          ) : null}
+          <form
+            className="onenote-add"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!user || !newBook.trim()) return
+              void postJson('/api/notes/notebooks', { name: newBook, scope: 'personal', csrf: user.csrf }).then(() => {
+                setNewBook('')
+                void loadTree()
+              })
+            }}
+          >
+            <input className="input" value={newBook} onChange={(e) => setNewBook(e.target.value)} placeholder="New notebook" />
+            <button type="submit" className="btn btn--small">Add</button>
+          </form>
+        </aside>
+        <aside className="on-pages">
+          <div className="row-actions">
+            {notebook?.can_write ? (
+              <>
+                <button type="button" className="btn btn--small btn--primary" onClick={() => void addPage('note')}>Add page</button>
+                <button type="button" className="btn btn--small" onClick={() => void addPage('list')}>Add list</button>
+              </>
+            ) : null}
+          </div>
+          {renderTree(null, 0)}
+          {detail?.can_write && currentId ? (
+            <button type="button" className="linkish" onClick={() => void addPage('note', currentId)}>Make subpage</button>
+          ) : null}
+        </aside>
+        <section className="on-paper">
+          {error ? <div className="status status--error">{error}</div> : null}
+          {(conflict || hasDraft) ? (
+            <div className="status status--error">
+              {conflict ? 'Someone saved this page already. Your draft stayed on this device.' : 'A local draft is waiting.'}
+              {user && detail ? (
+                <button type="button" className="btn btn--small" onClick={recoverDraft}>Recover draft as a new page</button>
               ) : null}
             </div>
-            {renderTree(null, 0)}
-            {detail?.can_write && currentId ? (
-              <button type="button" className="linkish" onClick={() => void addPage('note', currentId)}>Make subpage</button>
-            ) : null}
-          </aside>
-          <section className="onenote__stage panel">
-            {error ? <div className="status status--error">{error}</div> : null}
-            {(conflict || hasDraft) ? (
-              <div className="status status--error">
-                {conflict ? 'Someone saved this page already. Your draft stayed on this device.' : 'A local draft is waiting.'}
-                {user && detail ? (
-                  <button type="button" className="btn btn--small" onClick={() => {
-                    let raw = ''
-                    try { raw = localStorage.getItem(`aa.note.draft.${detail.page.id}`) || '' } catch { raw = '' }
-                    const draft = raw ? JSON.parse(raw) as { title?: string; body_html?: string; body_json?: string } : {}
-                    void postJson<{ page: { id: number } }>(`/api/notes/pages/${detail.page.id}/recover-draft`, {
-                      csrf: user.csrf,
-                      title: draft.title || title,
-                      body_html: draft.body_html || '',
-                      body_json: draft.body_json || '',
-                    }).then((row) => {
-                      try { localStorage.removeItem(`aa.note.draft.${detail.page.id}`) } catch { /* ignore */ }
-                      setHasDraft(false)
-                      setConflict(false)
-                      void loadTree()
-                      navigate(`/notes/${row.page.id}`)
-                    })
-                  }}>Recover draft as a new page</button>
-                ) : null}
-              </div>
-            ) : null}
-            {!detail ? (
-              <p className="muted">Pick a page, or add one in this section.</p>
-            ) : (
-              <>
-                <div className="onenote__head">
-                  <input className="input onenote__title" value={title} disabled={!detail.can_write} onChange={(e) => saveTitle(e.target.value)} />
-                  <p className="muted">{detail.page.scope === 'school' ? 'Family can read this' : detail.page.scope === 'class' ? 'This class can read this' : 'Only you'}</p>
-                </div>
-                <div className="row-actions">
-                  <button type="button" className="btn btn--small" onClick={() => {
-                    const next = !hideFmt
-                    setHideFmt(next)
-                    try { localStorage.setItem('aa.notes.hideFmt', next ? '1' : '0') } catch { /* ignore */ }
-                  }}>{hideFmt ? 'Show formatting' : 'Hide formatting'}</button>
-                </div>
-                {!hideFmt ? (
-                  <NoteToolbar
-                    pageId={detail.page.id}
-                    canWrite={detail.can_write}
-                    onMakeTask={() => setMakeTitle(title)}
-                    onImage={() => undefined}
-                  />
-                ) : null}
-                <div className="row-actions">
+          ) : null}
+          {!detail ? (
+            <p className="muted">Pick a page, or add one in this section.</p>
+          ) : (
+            <>
+              <div className="onenote__head">
+                <input className="input onenote__title page-title" value={title} disabled={!detail.can_write} onChange={(e) => saveTitle(e.target.value)} />
+                <p className="muted">
+                  {detail.page.scope === 'school' ? 'Family can read this' : detail.page.scope === 'class' ? 'This class can read this' : 'Only you'}
                   {detail.can_write && user?.is_teacher ? (
-                    <button type="button" className="btn btn--small" onClick={() => setShareOpen(true)}>Who can see this</button>
+                    <> · <button type="button" className="linkish" onClick={() => setShareOpen(true)}>Who can see this</button></>
                   ) : null}
-                  <button type="button" className="btn btn--small" onClick={() => {
-                    api<{ tasks: { id: number; title: string }[] }>('/api/tasks?filter=mine').then((data) => {
-                      setOpenTasks(data.tasks)
-                      setBringOpen(true)
-                    })
-                  }}>Bring in tasks</button>
-                  <button type="button" className="btn btn--small" onClick={() => {
-                    api<{ history: { id: number; title: string; created_at: string }[] }>(`/api/notes/pages/${detail.page.id}/history`).then((data) => setHistory(data.history))
-                  }}>History</button>
-                  <button type="button" className="btn btn--small" onClick={() => navigate(`/reminders?attach=page&item=${detail.page.id}`)}>Remind me</button>
-                  {detail.can_write ? <button type="button" className="linkish" onClick={() => setDrop(detail.page)}>Move to trash</button> : null}
-                </div>
-                <BoxCanvas
-                  pageId={detail.page.id}
-                  title={title}
-                  boxes={detail.boxes.filter((b) => b.id > 0)}
-                  canWrite={detail.can_write}
-                  onBoxes={(boxes) => setDetail((cur) => (cur ? { ...cur, boxes } : cur))}
-                  onConflict={() => setConflict(true)}
-                />
-                {detail.tasks.length ? (
-                  <ul className="plain-list">
-                    {detail.tasks.map((t) => (
-                      <li key={t.id}>
-                        {t.completed ? 'Done · ' : ''}{t.title}
-                        {detail.can_write && user ? (
-                          <button type="button" className="linkish" onClick={() => {
-                            void postJson(`/api/notes/pages/${detail.page.id}/unlink-task/${t.id}`, { csrf: user.csrf }).then(() => loadPage(detail.page.id))
-                          }}>Unlink</button>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </>
-            )}
-          </section>
-        </div>
+                </p>
+              </div>
+              <BoxCanvas
+                pageId={detail.page.id}
+                title={title}
+                boxes={detail.boxes.filter((b) => b.id > 0)}
+                canWrite={detail.can_write}
+                onBoxes={(boxes) => setDetail((cur) => (cur ? { ...cur, boxes } : cur))}
+                onConflict={() => setConflict(true)}
+              />
+              {detail.tasks.length ? (
+                <ul className="plain-list">
+                  {detail.tasks.map((t) => (
+                    <li key={t.id}>
+                      {t.completed ? 'Done · ' : ''}{t.title}
+                      {detail.can_write && user ? (
+                        <button type="button" className="linkish" onClick={() => {
+                          void postJson(`/api/notes/pages/${detail.page.id}/unlink-task/${t.id}`, { csrf: user.csrf }).then(() => loadPage(detail.page.id))
+                        }}>Unlink</button>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
+          )}
+        </section>
       </div>
       {drop && user ? (
         <Confirm title="Move this page to trash?" message={drop.title} confirmLabel="Trash" onCancel={() => setDrop(null)} onConfirm={() => {
@@ -537,6 +631,22 @@ export function Notes() {
               }}>Put this back</button>
             </div>
           ))}
+        </Modal>
+      ) : null}
+      {sourceOpen ? (
+        <Modal title="HTML source" onClose={() => setSourceOpen(false)} actions={
+          <>
+            <button type="button" className="btn" onClick={() => setSourceOpen(false)}>Cancel</button>
+            <button type="button" className="btn btn--primary" onClick={() => {
+              getSelectedBoxCmds()?.setHtml(sourceHtml)
+              setSourceOpen(false)
+            }}>Put this back</button>
+          </>
+        }>
+          <label className="field">
+            <span className="field__label">Selected box</span>
+            <textarea className="input" rows={12} value={sourceHtml} onChange={(e) => setSourceHtml(e.target.value)} />
+          </label>
         </Modal>
       ) : null}
     </div>

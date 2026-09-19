@@ -27,7 +27,7 @@ export function StateCapitals() {
       <header className="page-head">
         <div>
           <h1>{activity.title}</h1>
-          <p className="muted">Fifty states. Four ways to practice. Learn the map, then race the clock.</p>
+          <p className="muted">Fifty states. Study the map, take a word quiz, or match capitals. Progress stays with you.</p>
         </div>
         <div>
           <Stars count={stars} />

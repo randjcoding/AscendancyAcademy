@@ -7,7 +7,7 @@ export function TeacherGate() {
   if (loading) return null
   if (!user) return <Navigate to={`/login/teacher?next=${loc.pathname}`} replace />
   if (user.must_change_password) return <Navigate to="/password" replace />
-  if (!user.is_teacher) return <Navigate to="/activities" replace />
+  if (!user.is_teacher) return <Navigate to="/student" replace />
   return <Outlet />
 }
 
@@ -30,7 +30,19 @@ export function SignedIn() {
   return <Outlet />
 }
 
-const STUDENT_OK = ['/activities', '/attendance', '/settings', '/password']
+const STUDENT_OK = [
+  '/student',
+  '/activities',
+  '/attendance',
+  '/settings',
+  '/password',
+  '/notes',
+  '/tasks',
+  '/reminders',
+  '/calendar',
+  '/grades',
+  '/take',
+]
 
 export function StudentDeskGate() {
   const { user, loading } = useAuth()
@@ -39,7 +51,7 @@ export function StudentDeskGate() {
   if (!user) return <Navigate to={`/?next=${loc.pathname}`} replace />
   if (user.is_student) {
     const ok = STUDENT_OK.some((p) => loc.pathname === p || loc.pathname.startsWith(`${p}/`))
-    if (!ok) return <Navigate to="/activities" replace />
+    if (!ok) return <Navigate to="/student" replace />
   }
   return <Outlet />
 }

@@ -5,7 +5,7 @@
   "icon": "map-pin",
   "type": "interactive_map_drill",
   "passing_criteria": { "star_1": 1, "star_2": 80, "star_3": 100 },
-  "modes": ["study", "find_on_map", "name_the_capital", "flashcards"],
+  "modes": ["study", "find_on_map", "name_the_capital", "flashcards", "quiz", "match"],
   "content": [
     { "id": "AL", "name": "Alabama", "capital": "Montgomery", "capital_phonetic": "mont-GUM-uh-ree", "tip": "Montgomery sits in the middle of Alabama — think of a gum tree in the center.", "region": "South" },
     { "id": "AK", "name": "Alaska", "capital": "Juneau", "capital_phonetic": "JOO-noh", "tip": "Juneau is so far southeast you cannot drive there from the rest of Alaska.", "region": "West" },

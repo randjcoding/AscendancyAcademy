@@ -16,7 +16,7 @@ import { Choose, Login } from './pages/Login'
 import { Password } from './pages/Password'
 import { People } from './pages/People'
 import { Settings } from './pages/Settings'
-import { StudentGrades } from './pages/Student'
+import { StudentGrades, StudentHome } from './pages/Student'
 import { Notes } from './pages/Notes'
 import { Reminders } from './pages/Reminders'
 import { Tasks } from './pages/Tasks'
@@ -54,7 +54,7 @@ export default function App() {
               <Route path="/attendance" element={<Attendance />} />
               <Route path="/settings" element={<Settings />} />
               <Route element={<StudentGate />}>
-                <Route path="/student" element={<Navigate to="/activities" replace />} />
+                <Route path="/student" element={<StudentHome />} />
               </Route>
               <Route element={<StudentDeskGate />}>
                 <Route path="/grades" element={<StudentGrades />} />

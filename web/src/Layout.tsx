@@ -37,7 +37,7 @@ export function Layout() {
     <div className="app-shell">
       <header className={`topbar ${navOpen ? 'is-nav-open' : ''}`} id="topbar">
         <div className="topbar__brand">
-          <Link to={teacher ? '/teacher' : '/activities'} className="brand">
+          <Link to={teacher ? '/teacher' : '/student'} className="brand">
             <BrandMark />
             <span className="brand__words">
               <span className="brand__text">{me?.site_name || 'Ascendancy Academy'}</span>
@@ -106,11 +106,23 @@ export function Layout() {
             </>
           ) : (
             <>
-              <NavLink to="/activities" className={({ isActive }) => (isActive ? 'is-current' : '')} end>
+              <NavLink to="/student" className={({ isActive }) => (isActive ? 'is-current' : '')} end>
+                Home
+              </NavLink>
+              <NavLink to="/activities" className={({ isActive }) => (isActive ? 'is-current' : '')}>
                 Activities
               </NavLink>
               <NavLink to="/attendance" className={({ isActive }) => (isActive ? 'is-current' : '')}>
                 Attendance
+              </NavLink>
+              <NavLink to="/tasks" className={({ isActive }) => (isActive ? 'is-current' : '')}>
+                To-do
+              </NavLink>
+              <NavLink to="/notes" className={({ isActive }) => (isActive ? 'is-current' : '')}>
+                Notes
+              </NavLink>
+              <NavLink to="/reminders" className={({ isActive }) => (isActive ? 'is-current' : '')}>
+                Reminders
               </NavLink>
             </>
           )}
