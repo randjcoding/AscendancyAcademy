@@ -739,3 +739,51 @@ body.docs-modal-open { overflow: hidden; }
   border-right: 3px solid var(--mute); border-bottom: 3px solid var(--mute); cursor: nwse-resize;
 }
 .note-doc--box { min-height: 5rem; border: 0; background: transparent; padding: 0.2rem; }
+
+/* ---- Test Maker ---- */
+.btn--danger { border-color: var(--absent); color: var(--absent); background: transparent; }
+.btn--danger:hover { background: color-mix(in srgb, var(--absent) 14%, var(--surface)); }
+.btn-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+.check { display: flex; align-items: center; gap: 0.5rem; margin: 0.4rem 0; }
+.title-input {
+  font-size: 1.4rem; font-weight: 700; width: 100%; min-width: 0;
+  border: 1px solid transparent; border-radius: 10px; padding: 0.2rem 0.4rem;
+  background: transparent; color: var(--ink); font-family: inherit;
+}
+.title-input:focus { border-color: var(--line); background: var(--surface); outline: none; }
+.code-box {
+  width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2);
+  color: var(--ink); padding: 0.7rem; overflow-wrap: anywhere;
+}
+.chip-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.chip {
+  display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 999px; padding: 0.35rem 0.8rem;
+  background: var(--surface); color: var(--ink);
+}
+.chip.is-on { background: color-mix(in srgb, var(--brand) 22%, var(--surface)); border-color: var(--brand); }
+.chip input { accent-color: var(--brand); }
+
+.q-edit, .q-take, .q-review {
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2);
+  padding: 0.8rem 0.9rem; margin-bottom: 0.8rem;
+}
+.q-edit__head { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
+.q-edit__badge { font-weight: 700; }
+.q-edit__points { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; }
+.q-edit__points input { width: 4.5rem; }
+.q-edit__options, .q-edit__match { display: flex; flex-direction: column; gap: 0.4rem; }
+.q-edit__option { display: flex; align-items: center; gap: 0.5rem; }
+.q-edit__option input[type="text"], .q-edit__option > input:last-child { flex: 1 1 auto; min-width: 0; }
+.q-edit__letter { font-weight: 700; min-width: 1.3rem; }
+.q-edit__matchrow { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.q-edit__matchrow input { flex: 1 1 8rem; min-width: 0; }
+.q-edit__num { font-weight: 600; min-width: 1.6rem; }
+.q-take__prompt { margin-bottom: 0.5rem; overflow-wrap: anywhere; }
+.q-take__options { display: flex; flex-direction: column; gap: 0.4rem; }
+.q-take__option { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; overflow-wrap: anywhere; }
+.q-take__fill { width: 100%; }
+.q-review { border-left: 4px solid var(--line); }
+.q-review.is-right { border-left-color: var(--present); }
+.q-review.is-wrong { border-left-color: var(--absent); }
