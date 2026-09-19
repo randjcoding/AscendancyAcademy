@@ -706,7 +706,7 @@ export function PlayRound({
           places={seed}
           done={done}
           onItem={(id, correct) => logItem(id, correct)}
-          onScore={(right, total, finishedRound) => {
+          onScore={(right, _total, finishedRound) => {
             setScore(right)
             if (right > score) {
               playFx('correct', soundOn)
