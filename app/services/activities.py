@@ -313,6 +313,7 @@ def _load_path(db: Session, student_id: int, activity_id: str) -> tuple[Activity
     if isinstance(raw.get("final"), dict):
         data["final"] = {k: float(v) for k, v in raw["final"].items() if k in PATH_GAMES}
     regions = raw.get("regions") if isinstance(raw.get("regions"), dict) else {}
+    leftover = regions.get("alaska_hawaii") if isinstance(regions.get("alaska_hawaii"), dict) else {}
     for rid in PATH_ORDER:
         src = regions.get(rid) if isinstance(regions.get(rid), dict) else {}
         games = src.get("games") if isinstance(src.get("games"), dict) else {}
@@ -320,6 +321,14 @@ def _load_path(db: Session, student_id: int, activity_id: str) -> tuple[Activity
             "intro_done": bool(src.get("intro_done")),
             "games": {k: float(v) for k, v in games.items() if k in PATH_GAMES},
         }
+    if leftover and "pacific" in data["regions"]:
+        dest = data["regions"]["pacific"]
+        extra = leftover.get("games") if isinstance(leftover.get("games"), dict) else {}
+        for mode, val in extra.items():
+            if mode in PATH_GAMES:
+                dest["games"][mode] = max(float(dest["games"].get(mode) or 0), float(val or 0))
+        if leftover.get("intro_done"):
+            dest["intro_done"] = True
     return row, data
 
 

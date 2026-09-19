@@ -16,8 +16,7 @@ PATH_REGIONS: list[dict] = [
     {"id": "south", "label": "South", "ids": ["VA", "WV", "NC", "SC", "GA", "FL", "KY", "TN", "AL", "MS", "AR", "LA", "OK", "TX"]},
     {"id": "midwest", "label": "Midwest", "ids": ["OH", "MI", "IN", "WI", "IL", "MN", "IA", "MO", "ND", "SD", "NE", "KS"]},
     {"id": "mountain_west", "label": "Mountain West", "ids": ["MT", "ID", "WY", "NV", "UT", "CO", "AZ", "NM"]},
-    {"id": "pacific", "label": "Pacific", "ids": ["WA", "OR", "CA"]},
-    {"id": "alaska_hawaii", "label": "Alaska & Hawaii", "ids": ["AK", "HI"]},
+    {"id": "pacific", "label": "Pacific", "ids": ["WA", "OR", "CA", "AK", "HI"]},
 ]
 
 PATH_ORDER = [row["id"] for row in PATH_REGIONS]

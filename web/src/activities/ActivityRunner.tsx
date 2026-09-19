@@ -547,8 +547,6 @@ export function PlayRound({
   const unlabeled = mode === 'find_the_state' || mode === 'find_on_map' || mode === 'neighbor_hunt'
   const showFacts = mode === 'study' && open
   const showReveal = Boolean(current && revealed && mode !== 'study')
-  const mapFocus = mode === 'study' ? open?.id : current && usesMap ? current.id : undefined
-
   return (
     <section className={`panel drill ${shake ? 'is-shake' : ''} ${pulse ? 'is-pulse' : ''}`}>
       <div className="panel__head">
@@ -566,7 +564,7 @@ export function PlayRound({
           seconds={mode === 'flashcards' ? seconds : undefined}
         />
       ) : (
-        <p className="muted">Opened {visited.size} of {allPlaces.length}. Tap a state to zoom in. Open 10 to earn a star.</p>
+        <p className="muted">Opened {visited.size} of {allPlaces.length}. Tap a state to read it. Open 10 to earn a star.</p>
       )}
 
       {mode === 'find_on_map' && current ? (
@@ -625,7 +623,6 @@ export function PlayRound({
             regionTint={mode === 'study'}
             labels={mode === 'study' && labelsOn}
             tips={mode === 'study'}
-            focusState={mapFocus}
             zoomId={zoomId}
             onPick={onMapPick}
             onZoom={applyZoom}
@@ -666,7 +663,7 @@ export function PlayRound({
                 {current.name} — {current.capital}
               </p>
             ) : null}
-            {mode === 'study' && !open ? <p className="muted">Tap a state to zoom in and see its capital.</p> : null}
+            {mode === 'study' && !open ? <p className="muted">Tap a state to see its capital. Scroll or pinch if you want a closer look.</p> : null}
           </aside>
         </div>
       ) : null}

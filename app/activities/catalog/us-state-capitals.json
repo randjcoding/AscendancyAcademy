@@ -40,7 +40,7 @@
       "tip": "Juneau is so far southeast you cannot drive there from the rest of Alaska.",
       "region": "West",
       "trap_city": "Anchorage",
-      "path_region": "alaska_hawaii"
+      "path_region": "pacific"
     },
     {
       "id": "AZ",
@@ -130,7 +130,7 @@
       "tip": "Honolulu is on Oahu — the only island most visitors land on first.",
       "region": "West",
       "trap_city": "Hilo",
-      "path_region": "alaska_hawaii"
+      "path_region": "pacific"
     },
     {
       "id": "ID",

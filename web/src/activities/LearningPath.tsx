@@ -118,7 +118,6 @@ export function LearningPath({
             highlight={place.id}
             labels
             tips
-            focusState={place.id}
             zoomId={step.region.id}
             onPick={() => undefined}
           />

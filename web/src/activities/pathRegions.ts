@@ -5,7 +5,6 @@ export type PathRegionId =
   | 'midwest'
   | 'mountain_west'
   | 'pacific'
-  | 'alaska_hawaii'
 
 export const PATH_GAMES = [
   'find_the_state',
@@ -24,8 +23,7 @@ export const PATH_REGIONS: { id: PathRegionId; label: string; ids: string[] }[] 
   { id: 'south', label: 'South', ids: ['VA', 'WV', 'NC', 'SC', 'GA', 'FL', 'KY', 'TN', 'AL', 'MS', 'AR', 'LA', 'OK', 'TX'] },
   { id: 'midwest', label: 'Midwest', ids: ['OH', 'MI', 'IN', 'WI', 'IL', 'MN', 'IA', 'MO', 'ND', 'SD', 'NE', 'KS'] },
   { id: 'mountain_west', label: 'Mountain West', ids: ['MT', 'ID', 'WY', 'NV', 'UT', 'CO', 'AZ', 'NM'] },
-  { id: 'pacific', label: 'Pacific', ids: ['WA', 'OR', 'CA'] },
-  { id: 'alaska_hawaii', label: 'Alaska & Hawaii', ids: ['AK', 'HI'] },
+  { id: 'pacific', label: 'Pacific', ids: ['WA', 'OR', 'CA', 'AK', 'HI'] },
 ]
 
 export const PATH_REGION_IDS = Object.fromEntries(

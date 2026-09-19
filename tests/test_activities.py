@@ -55,6 +55,8 @@ def test_catalog_has_fifty_unique_capitals():
     assert all(p.trap_city for p in places)
     assert {p.id for p in places} == set(all_ids())
     assert {p.id for p in places if p.path_region == "new_england"} == {"ME", "NH", "VT", "MA", "RI", "CT"}
+    assert {p.id for p in places if p.path_region == "pacific"} == {"WA", "OR", "CA", "AK", "HI"}
+    assert not any(p.path_region == "alaska_hawaii" for p in places)
     assert next(p for p in places if p.id == "UT").path_region == "mountain_west"
 
 
