@@ -787,3 +787,57 @@ body.docs-modal-open { overflow: hidden; }
 .q-review { border-left: 4px solid var(--line); }
 .q-review.is-right { border-left-color: var(--present); }
 .q-review.is-wrong { border-left-color: var(--absent); }
+
+/* ---- Activities ---- */
+.activity-card, .mode-card {
+  display: block; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 1.1rem 1.2rem; color: var(--ink); text-decoration: none; box-shadow: var(--shadow); min-width: 0;
+}
+.mode-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.8rem; }
+.mode-card { text-align: left; cursor: pointer; font: inherit; }
+.mode-card:hover, .activity-card:hover { border-color: var(--brand); }
+.streak-chip {
+  background: color-mix(in srgb, var(--gold) 22%, var(--surface)); border: 1px solid var(--line);
+  border-radius: 999px; padding: 0.4rem 0.9rem; font-weight: 700;
+}
+.star-row { letter-spacing: 0.15em; font-size: 1.25rem; }
+.star { color: color-mix(in srgb, var(--ink) 25%, var(--surface)); }
+.star.is-on { color: var(--gold); }
+.drill-hud {
+  display: flex; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 0.7rem; font-weight: 600;
+}
+.usa-map { min-width: 0; }
+.usa-map__svg {
+  width: 100%; height: auto; max-height: 28rem; background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: var(--radius);
+}
+.usa-state { fill: var(--surface); stroke: var(--line); stroke-width: 1; cursor: pointer; }
+.usa-state:hover, .usa-state.is-focus { fill: color-mix(in srgb, var(--brand) 28%, var(--surface)); }
+.usa-state.is-lit { fill: color-mix(in srgb, var(--gold) 45%, var(--surface)); }
+.usa-state.is-right { fill: color-mix(in srgb, var(--present) 55%, var(--surface)); }
+.usa-state.is-wrong { fill: color-mix(in srgb, var(--absent) 45%, var(--surface)); }
+.usa-state.region-ne { fill: color-mix(in srgb, var(--brand) 12%, var(--surface)); }
+.usa-state.region-so { fill: color-mix(in srgb, var(--gold) 12%, var(--surface)); }
+.usa-state.region-mw { fill: color-mix(in srgb, var(--accent, var(--brand-2)) 12%, var(--surface)); }
+.usa-state.region-we { fill: color-mix(in srgb, var(--brand-2) 12%, var(--surface)); }
+.usa-map__tools { display: flex; gap: 0.4rem; margin-bottom: 0.4rem; }
+.usa-map__hint { margin-top: 0.4rem; }
+.prompt-line { font-size: 1.15rem; margin: 0.6rem 0; overflow-wrap: anywhere; }
+.state-card {
+  margin-top: 0.8rem; padding: 0.9rem; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.choice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.5rem; margin-top: 0.8rem; }
+.flash-card { margin-top: 0.8rem; }
+.drill.is-shake { animation: drill-shake 0.35s ease; }
+.drill.is-pulse .usa-state.is-right { filter: brightness(1.08); }
+@keyframes drill-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+.chart-box { width: 100%; min-height: 180px; }
+.admin-person {
+  display: grid; gap: 0.5rem; padding: 0.7rem 0; border-bottom: 1px solid var(--line);
+}
+.finish-card { text-align: center; }

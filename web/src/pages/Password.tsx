@@ -27,7 +27,7 @@ export function Password() {
         forced,
       })
       await refresh()
-      navigate(user.is_teacher ? '/teacher' : '/student')
+      navigate(user.is_teacher ? '/teacher' : '/activities')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not save that password.')
     }

@@ -54,7 +54,7 @@ def _clear_session_cookie(response: Response, request: Request) -> None:
 
 
 def _home_for(user: User) -> str:
-    return "/teacher" if user.kind == UserKind.TEACHER else "/student"
+    return "/teacher" if user.kind == UserKind.TEACHER else "/activities"
 
 
 @router.get("/login")

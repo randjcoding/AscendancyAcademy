@@ -88,20 +88,30 @@ def _must_user(request: Request, db: Session) -> User | JSONResponse:
     return user
 
 
-def _user_json(user: User, request: Request) -> dict:
+def _user_json(user: User, request: Request, db: Session | None = None) -> dict:
     tok = session_token(request)
+    can_ai = bool(user.is_teacher)
+    if db is not None and not user.is_teacher:
+        from app.services.activities import can_use_ai
+
+        can_ai = can_use_ai(db, user)
     return {
         "id": user.id,
         "email": user.email,
         "first_name": user.first_name,
         "last_name": user.last_name,
         "full_name": user.full_name,
+        "display_name": user.display_name,
+        "nickname": getattr(user, "nickname", None) or "",
         "kind": user.kind.value,
         "role": getattr(user, "role", None) or ("student" if user.is_student else "teacher"),
         "is_teacher": user.is_teacher,
         "is_student": user.is_student,
+        "is_super_admin": bool(getattr(user, "is_super_admin", False)),
         "can_manage_people": user.can_manage_people,
+        "can_use_ai": can_ai,
         "phone": getattr(user, "phone", None) or "",
+        "sound_enabled": bool(getattr(user, "sound_enabled", True)),
         "must_change_password": user.must_change_password,
         "theme": user.theme_preference or "ascendancy",
         "density": user.density_preference or "cozy",
@@ -187,6 +197,13 @@ class PhoneBody(BaseModel):
     csrf: str = ""
     phone: str = ""
     user_id: int = 0
+
+
+class ProfileBody(BaseModel):
+    csrf: str = ""
+    nickname: str | None = None
+    sound_enabled: bool | None = None
+    phone: str | None = None
 
 
 class BookBody(BaseModel):
@@ -284,7 +301,7 @@ def me(request: Request, db: Session = Depends(get_db)):
     user = _current(request, db)
     year = attendance_svc.current_year(db)
     return {
-        "user": _user_json(user, request) if user else None,
+        "user": _user_json(user, request, db) if user else None,
         "site_name": settings.site_name,
         "school_year": year.label if year else "",
         "themes": THEMES,
@@ -315,10 +332,10 @@ async def api_login(body: LoginBody, request: Request, db: Session = Depends(get
         )
         return _err(msg)
     session = create_session(db, user, request)
-    dest = body.next if body.next.startswith("/") else ("/teacher" if user.is_teacher else "/student")
+    dest = body.next if body.next.startswith("/") else ("/teacher" if user.is_teacher else "/activities")
     if user.must_change_password:
         dest = "/password"
-    payload = _user_json(user, request)
+    payload = _user_json(user, request, db)
     payload["csrf"] = csrf_token_for(session)
     resp = JSONResponse({"ok": True, "user": payload, "next": dest})
     resp.set_cookie(
@@ -351,6 +368,28 @@ def api_set_phone(body: PhoneBody, request: Request, db: Session = Depends(get_d
     db.add(target)
     db.commit()
     return {"ok": True, "phone": target.phone or ""}
+
+
+@router.post("/profile")
+def api_profile(body: ProfileBody, request: Request, db: Session = Depends(get_db)):
+    user = _must_user(request, db)
+    if isinstance(user, JSONResponse):
+        return user
+    if _csrf_bad(request, body.csrf):
+        return _err("That form expired.", 403)
+    if body.nickname is not None:
+        user.nickname = body.nickname.strip()[:80]
+        if user.is_student:
+            student = db.scalar(select(Student).where(Student.user_id == user.id))
+            if student:
+                student.preferred_name = user.nickname or user.first_name
+    if body.sound_enabled is not None:
+        user.sound_enabled = bool(body.sound_enabled)
+    if body.phone is not None:
+        user.phone = body.phone.strip()[:32]
+    db.add(user)
+    db.commit()
+    return {"ok": True, "user": _user_json(user, request, db)}
 
 
 @router.post("/logout")
@@ -1258,11 +1297,19 @@ def api_doc_move(body: MoveBody, request: Request, db: Session = Depends(get_db)
     return {"ok": True, "moved": moved}
 
 
+def _may_use_keys(db: Session, user: User) -> bool:
+    from app.services.activities import can_use_ai
+
+    return bool(user.is_teacher or can_use_ai(db, user))
+
+
 @router.get("/keys")
 def api_keys(request: Request, db: Session = Depends(get_db)):
     user = _must_user(request, db)
     if isinstance(user, JSONResponse):
         return user
+    if not _may_use_keys(db, user):
+        return _err("AI keys are off for this account.", 403)
     keys = db.scalars(select(TeacherApiKey).where(TeacherApiKey.user_id == user.id).order_by(TeacherApiKey.name)).all()
     return {"keys": [{"id": k.id, "name": k.name, "provider": k.provider} for k in keys]}
 
@@ -1272,6 +1319,8 @@ def api_add_key(body: KeyBody, request: Request, db: Session = Depends(get_db)):
     user = _must_user(request, db)
     if isinstance(user, JSONResponse):
         return user
+    if not _may_use_keys(db, user):
+        return _err("AI keys are off for this account.", 403)
     if _csrf_bad(request, body.csrf):
         return _err("That form expired.", 403)
     if not body.secret.strip():
@@ -1293,6 +1342,8 @@ def api_del_key(key_id: int, body: ViewBody, request: Request, db: Session = Dep
     user = _must_user(request, db)
     if isinstance(user, JSONResponse):
         return user
+    if not _may_use_keys(db, user):
+        return _err("AI keys are off for this account.", 403)
     if _csrf_bad(request, body.csrf):
         return _err("That form expired.", 403)
     row = db.get(TeacherApiKey, key_id)
@@ -1342,7 +1393,15 @@ def api_people(request: Request, db: Session = Depends(get_db)):
     people = db.scalars(select(User).order_by(User.first_name)).all()
     return {
         "people": [
-            {"id": p.id, "name": p.full_name, "email": p.email, "phone": getattr(p, "phone", None) or "", "role": getattr(p, "role", ""), "kind": p.kind.value}
+            {
+                "id": p.id,
+                "name": p.display_name,
+                "nickname": getattr(p, "nickname", None) or "",
+                "email": p.email,
+                "phone": getattr(p, "phone", None) or "",
+                "role": getattr(p, "role", ""),
+                "kind": p.kind.value,
+            }
             for p in people
         ]
     }

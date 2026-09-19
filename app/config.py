@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     teacher2_first_name: str = "Kim"
     teacher2_last_name: str = "DiFede"
 
-    student1_email: str = "gregory@example.com"
+    student1_email: str = "gregorydifede@gmail.com"
     student1_password: str = "change-me-on-first-login"
     student1_first_name: str = "Gregory"
     student1_last_name: str = "DiFede"

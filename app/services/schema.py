@@ -122,6 +122,14 @@ def ensure_schema() -> None:
             adds=adds,
         )
         _add_if_missing(cols=cols, table="users", name="phone", ddl="phone VARCHAR(32)", adds=adds)
+        _add_if_missing(cols=cols, table="users", name="nickname", ddl="nickname VARCHAR(80) DEFAULT ''", adds=adds)
+        _add_if_missing(
+            cols=cols,
+            table="users",
+            name="sound_enabled",
+            ddl=f"sound_enabled BOOLEAN DEFAULT {bool_true}",
+            adds=adds,
+        )
 
     if "notebooks" in tables:
         cols = {c["name"] for c in insp.get_columns("notebooks")}

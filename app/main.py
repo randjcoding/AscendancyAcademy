@@ -12,7 +12,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.config import BASE_DIR, settings
 from app.database import SessionLocal
-from app.routers import api, assessments_api, attendance, auth, board_api, books, calendar, courses, documents, grades, home, notes_api, print_views, reminders_api, settings as settings_router
+from app.routers import activities_api, admin_api, api, assessments_api, attendance, auth, board_api, books, calendar, courses, documents, grades, home, notes_api, print_views, reminders_api, settings as settings_router
 from app.routers import tasks, theme, usage
 from app.seed import seed
 from app.services.documents import ensure_library_layout
@@ -149,6 +149,8 @@ def create_app() -> FastAPI:
         return {"ok": True, "sent": sent}
 
     app.include_router(api.router)
+    app.include_router(activities_api.router)
+    app.include_router(admin_api.router)
     app.include_router(assessments_api.router)
     app.include_router(notes_api.router)
     app.include_router(reminders_api.router)

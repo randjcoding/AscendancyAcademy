@@ -43,6 +43,12 @@ OLD_TEACHER2_EMAILS = (
     "teacher@example.com",
 )
 
+OLD_STUDENT1_EMAILS = (
+    "gregory@example.com",
+    "gregory@ascendancy.local",
+    "gregory.difede@gmail.com",
+)
+
 
 def _upsert_user(
     db: Session,
@@ -55,6 +61,7 @@ def _upsert_user(
     is_admin: bool,
     role: str = "",
     previous_emails: tuple[str, ...] = (),
+    apply_password_on_remap: bool = False,
 ) -> User:
     email_norm = email.lower().strip()
     user = db.scalar(select(User).where(User.email == email_norm))
@@ -67,6 +74,9 @@ def _upsert_user(
             user.last_name = last_name.strip()
             if role:
                 user.role = role
+            if apply_password_on_remap and password:
+                user.password_hash = hash_password(password)
+                user.must_change_password = False
             db.add(user)
             db.flush()
             return user
@@ -150,6 +160,8 @@ def seed(db: Session | None = None) -> None:
             kind=UserKind.STUDENT,
             is_admin=False,
             role="student",
+            previous_emails=OLD_STUDENT1_EMAILS,
+            apply_password_on_remap=True,
         )
 
         joe_t = db.scalar(select(Teacher).where(Teacher.user_id == joe.id))

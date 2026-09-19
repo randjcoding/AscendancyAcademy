@@ -86,6 +86,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     first_name: Mapped[str] = mapped_column(String(80), default="")
     last_name: Mapped[str] = mapped_column(String(80), default="")
+    nickname: Mapped[str] = mapped_column(String(80), default="")
     password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     kind: Mapped[UserKind] = mapped_column(_enum(UserKind, "user_kind"), index=True)
     role: Mapped[str] = mapped_column(String(20), default="teacher", index=True)
@@ -97,6 +98,7 @@ class User(Base):
     density_preference: Mapped[str] = mapped_column(String(20), default="cozy")
     list_view_preference: Mapped[str] = mapped_column(String(20), default="cards")
     phone: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    sound_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
     failed_login_count: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -113,6 +115,11 @@ class User(Base):
     @property
     def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}".strip() or self.email
+
+    @property
+    def display_name(self) -> str:
+        nick = (self.nickname or "").strip()
+        return nick or self.full_name
 
     @property
     def initials(self) -> str:
@@ -823,3 +830,49 @@ class AssessmentAnswer(Base):
     first_correct: Mapped[bool] = mapped_column(Boolean, default=False)
 
     attempt: Mapped["AssessmentAttempt"] = relationship(back_populates="answers")
+
+
+class ActivityAttempt(Base):
+    __tablename__ = "activity_attempts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    student_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("students.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    activity_id: Mapped[str] = mapped_column(String(80), index=True)
+    mode: Mapped[str] = mapped_column(String(32), default="")
+    score: Mapped[int] = mapped_column(Integer, default=0)
+    total: Mapped[int] = mapped_column(Integer, default=0)
+    accuracy: Mapped[float] = mapped_column(Float, default=0)
+    time_taken_seconds: Mapped[int] = mapped_column(Integer, default=0)
+    stars_earned: Mapped[int] = mapped_column(Integer, default=0)
+    detail_json: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
+class ActivityProgress(Base):
+    __tablename__ = "activity_progress"
+    __table_args__ = (UniqueConstraint("student_id", "activity_id", name="uq_activity_progress"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), index=True)
+    activity_id: Mapped[str] = mapped_column(String(80), index=True)
+    best_accuracy: Mapped[float] = mapped_column(Float, default=0)
+    best_stars: Mapped[int] = mapped_column(Integer, default=0)
+    plays: Mapped[int] = mapped_column(Integer, default=0)
+    streak: Mapped[int] = mapped_column(Integer, default=0)
+    last_played_on: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class UserAiGrant(Base):
+    __tablename__ = "user_ai_grants"
+    __table_args__ = (UniqueConstraint("user_id", "purpose", name="uq_user_ai_grant"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    purpose: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

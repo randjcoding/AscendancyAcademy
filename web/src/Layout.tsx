@@ -37,7 +37,7 @@ export function Layout() {
     <div className="app-shell">
       <header className={`topbar ${navOpen ? 'is-nav-open' : ''}`} id="topbar">
         <div className="topbar__brand">
-          <Link to={teacher ? '/teacher' : '/student'} className="brand">
+          <Link to={teacher ? '/teacher' : '/activities'} className="brand">
             <BrandMark />
             <span className="brand__words">
               <span className="brand__text">{me?.site_name || 'Ascendancy Academy'}</span>
@@ -78,6 +78,9 @@ export function Layout() {
               <NavLink to="/notes" className={({ isActive }) => (isActive ? 'is-current' : '')}>
                 Notes
               </NavLink>
+              <NavLink to="/activities" className={({ isActive }) => (isActive ? 'is-current' : '')}>
+                Activities
+              </NavLink>
               <NavLink to="/tests" className={({ isActive }) => (isActive ? 'is-current' : '')}>
                 Tests
               </NavLink>
@@ -95,29 +98,19 @@ export function Layout() {
                   People
                 </NavLink>
               ) : null}
+              {user.is_super_admin ? (
+                <NavLink to="/admin" className={({ isActive }) => (isActive ? 'is-current' : '')}>
+                  Admin
+                </NavLink>
+              ) : null}
             </>
           ) : (
             <>
-              <NavLink to="/student" className={({ isActive }) => (isActive ? 'is-current' : '')} end>
-                Home
-              </NavLink>
-              <NavLink to="/grades" className={({ isActive }) => (isActive ? 'is-current' : '')}>
-                Grades
+              <NavLink to="/activities" className={({ isActive }) => (isActive ? 'is-current' : '')} end>
+                Activities
               </NavLink>
               <NavLink to="/attendance" className={({ isActive }) => (isActive ? 'is-current' : '')}>
                 Attendance
-              </NavLink>
-              <NavLink to="/calendar" className={({ isActive }) => (isActive ? 'is-current' : '')}>
-                Calendar
-              </NavLink>
-              <NavLink to="/tasks" className={({ isActive }) => (isActive ? 'is-current' : '')}>
-                To-do
-              </NavLink>
-              <NavLink to="/notes" className={({ isActive }) => (isActive ? 'is-current' : '')}>
-                Notes
-              </NavLink>
-              <NavLink to="/reminders" className={({ isActive }) => (isActive ? 'is-current' : '')}>
-                Reminders
               </NavLink>
             </>
           )}
@@ -166,7 +159,7 @@ export function Layout() {
               onClick={() => { setAccountOpen((v) => !v); setThemesOpen(false) }}
               aria-expanded={accountOpen}
             >
-              {user?.first_name || 'Account'} ▾
+              {user?.nickname || user?.display_name || user?.first_name || 'Account'} ▾
             </button>
             {accountOpen ? (
               <div className="account-menu__panel">

@@ -7,7 +7,7 @@ import { Confirm } from '../ui/Confirm'
 type KeyRow = { id: number; name: string; provider: string }
 
 export function Settings() {
-  const { user, me, setLook } = useAuth()
+  const { user, me, setLook, refresh } = useAuth()
   const [keys, setKeys] = useState<KeyRow[]>([])
   const [name, setName] = useState('')
   const [provider, setProvider] = useState('openai')
@@ -16,9 +16,12 @@ export function Settings() {
   const [drop, setDrop] = useState<KeyRow | null>(null)
   const [phone, setPhone] = useState(user?.phone || '')
   const [phoneOk, setPhoneOk] = useState('')
+  const [nickname, setNickname] = useState(user?.nickname || '')
+  const [soundOn, setSoundOn] = useState(user?.sound_enabled !== false)
+  const [profileOk, setProfileOk] = useState('')
 
   const load = async () => {
-    if (!user?.is_teacher) return
+    if (!user?.can_use_ai) return
     const data = await api<{ keys: KeyRow[] }>('/api/keys')
     setKeys(data.keys)
   }
@@ -53,6 +56,27 @@ export function Settings() {
         </div>
       </header>
       {error ? <div className="status status--error">{error}</div> : null}
+      <section className="panel">
+        <h2>What we call you</h2>
+        <form className="form form--grid" onSubmit={(e) => {
+          e.preventDefault()
+          void postJson('/api/profile', { nickname, sound_enabled: soundOn, csrf: user.csrf }).then(() => {
+            setProfileOk('Saved.')
+            void refresh()
+          })
+        }}>
+          <label className="field">
+            <span className="field__label">Nickname</span>
+            <input className="input" value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="Greg" />
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={soundOn} onChange={(e) => setSoundOn(e.target.checked)} />
+            Play sounds in activities
+          </label>
+          <div className="field"><button type="submit" className="btn btn--primary">Save</button></div>
+        </form>
+        {profileOk ? <p className="muted">{profileOk}</p> : null}
+      </section>
       <section className="panel">
         <h2>Phone for texts</h2>
         <p className="muted">T-Mobile number, 10 digits. Reminders can text this phone.</p>
@@ -104,7 +128,7 @@ export function Settings() {
           <Link className="btn" to="/password">Change password</Link>
         </p>
       </section>
-      {user.is_teacher ? (
+      {user.can_use_ai ? (
         <section className="panel">
           <h2>My keys</h2>
           <p className="muted">Name them so you know which is which. We keep the secret hidden.</p>

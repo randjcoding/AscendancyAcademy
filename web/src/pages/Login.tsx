@@ -8,7 +8,7 @@ export function Choose() {
   const { user, loading, me } = useAuth()
   if (loading) return null
   if (user?.must_change_password) return <Navigate to="/password" replace />
-  if (user) return <Navigate to={user.is_teacher ? '/teacher' : '/student'} replace />
+  if (user) return <Navigate to={user.is_teacher ? '/teacher' : '/activities'} replace />
   return (
     <div className="gate-page">
       <div className="gate">
@@ -78,7 +78,7 @@ export function Login() {
 
   if (loading) return null
   if (user?.must_change_password) return <Navigate to="/password" replace />
-  if (user) return <Navigate to={user.is_teacher ? '/teacher' : '/student'} replace />
+  if (user) return <Navigate to={user.is_teacher ? '/teacher' : '/activities'} replace />
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()

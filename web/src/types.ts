@@ -4,16 +4,21 @@ export type User = {
   first_name: string
   last_name: string
   full_name: string
+  display_name: string
+  nickname: string
   kind: string
   role: string
   is_teacher: boolean
   is_student: boolean
+  is_super_admin: boolean
   can_manage_people: boolean
+  can_use_ai: boolean
   must_change_password: boolean
   theme: string
   density: string
   list_view: string
   phone?: string
+  sound_enabled?: boolean
   csrf: string
 }
 

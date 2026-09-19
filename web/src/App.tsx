@@ -8,12 +8,15 @@ import { Courses } from './pages/Courses'
 import { Desk } from './pages/Desk'
 import { Documents } from './pages/Documents'
 import { Gradebook } from './pages/Gradebook'
-import { SignedIn, StudentGate, TeacherGate } from './pages/Guard'
+import { Admin } from './pages/Admin'
+import { Activities } from './pages/Activities'
+import { SignedIn, StudentDeskGate, StudentGate, TeacherGate } from './pages/Guard'
+import { StateCapitals } from './pages/StateCapitals'
 import { Choose, Login } from './pages/Login'
 import { Password } from './pages/Password'
 import { People } from './pages/People'
 import { Settings } from './pages/Settings'
-import { StudentGrades, StudentHome } from './pages/Student'
+import { StudentGrades } from './pages/Student'
 import { Notes } from './pages/Notes'
 import { Reminders } from './pages/Reminders'
 import { Tasks } from './pages/Tasks'
@@ -44,19 +47,24 @@ export default function App() {
                 <Route path="/tests/results" element={<TestResults />} />
                 <Route path="/tests/:id" element={<TestEditor />} />
                 <Route path="/people" element={<People />} />
+                <Route path="/admin" element={<Admin />} />
               </Route>
+              <Route path="/activities" element={<Activities />} />
+              <Route path="/activities/state-capitals" element={<StateCapitals />} />
+              <Route path="/attendance" element={<Attendance />} />
+              <Route path="/settings" element={<Settings />} />
               <Route element={<StudentGate />}>
-                <Route path="/student" element={<StudentHome />} />
+                <Route path="/student" element={<Navigate to="/activities" replace />} />
+              </Route>
+              <Route element={<StudentDeskGate />}>
                 <Route path="/grades" element={<StudentGrades />} />
                 <Route path="/take/:id" element={<TakeTest />} />
+                <Route path="/calendar" element={<CalendarPage />} />
+                <Route path="/tasks" element={<Tasks />} />
+                <Route path="/notes" element={<Notes />} />
+                <Route path="/notes/:pageId" element={<Notes />} />
+                <Route path="/reminders" element={<Reminders />} />
               </Route>
-              <Route path="/attendance" element={<Attendance />} />
-              <Route path="/calendar" element={<CalendarPage />} />
-              <Route path="/tasks" element={<Tasks />} />
-              <Route path="/notes" element={<Notes />} />
-              <Route path="/notes/:pageId" element={<Notes />} />
-              <Route path="/reminders" element={<Reminders />} />
-              <Route path="/settings" element={<Settings />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
