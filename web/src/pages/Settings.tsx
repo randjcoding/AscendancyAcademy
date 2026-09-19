@@ -18,6 +18,7 @@ export function Settings() {
   const [phoneOk, setPhoneOk] = useState('')
   const [nickname, setNickname] = useState(user?.nickname || '')
   const [soundOn, setSoundOn] = useState(user?.sound_enabled !== false)
+  const [spellHelp, setSpellHelp] = useState(user?.spell_help !== false)
   const [profileOk, setProfileOk] = useState('')
 
   const load = async () => {
@@ -60,7 +61,7 @@ export function Settings() {
         <h2>What we call you</h2>
         <form className="form form--grid" onSubmit={(e) => {
           e.preventDefault()
-          void postJson('/api/profile', { nickname, sound_enabled: soundOn, csrf: user.csrf }).then(() => {
+          void postJson('/api/profile', { nickname, sound_enabled: soundOn, spell_help: spellHelp, csrf: user.csrf }).then(() => {
             setProfileOk('Saved.')
             void refresh()
           })
@@ -73,6 +74,14 @@ export function Settings() {
             <input type="checkbox" checked={soundOn} onChange={(e) => setSoundOn(e.target.checked)} />
             Play sounds in activities
           </label>
+          <label className="check">
+            <input type="checkbox" checked={spellHelp} onChange={(e) => setSpellHelp(e.target.checked)} />
+            Help with spelling
+          </label>
+          <p className="muted">
+            When this is on, Type it out shows a word book of states and capitals and close spellings still count.
+            Turn it off if you want spelling to count.
+          </p>
           <div className="field"><button type="submit" className="btn btn--primary">Save</button></div>
         </form>
         {profileOk ? <p className="muted">{profileOk}</p> : null}

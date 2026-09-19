@@ -112,6 +112,7 @@ def _user_json(user: User, request: Request, db: Session | None = None) -> dict:
         "can_use_ai": can_ai,
         "phone": getattr(user, "phone", None) or "",
         "sound_enabled": bool(getattr(user, "sound_enabled", True)),
+        "spell_help": bool(getattr(user, "spell_help", True)),
         "must_change_password": user.must_change_password,
         "theme": user.theme_preference or "ascendancy",
         "density": user.density_preference or "cozy",
@@ -203,7 +204,9 @@ class ProfileBody(BaseModel):
     csrf: str = ""
     nickname: str | None = None
     sound_enabled: bool | None = None
+    spell_help: bool | None = None
     phone: str | None = None
+    user_id: int = 0
 
 
 class BookBody(BaseModel):
@@ -385,11 +388,19 @@ def api_profile(body: ProfileBody, request: Request, db: Session = Depends(get_d
                 student.preferred_name = user.nickname or user.first_name
     if body.sound_enabled is not None:
         user.sound_enabled = bool(body.sound_enabled)
+    target = user
+    if body.user_id and user.is_teacher:
+        other = db.get(User, body.user_id)
+        if other and other.is_student:
+            target = other
+    if body.spell_help is not None:
+        target.spell_help = bool(body.spell_help)
+        db.add(target)
     if body.phone is not None:
         user.phone = body.phone.strip()[:32]
     db.add(user)
     db.commit()
-    return {"ok": True, "user": _user_json(user, request, db)}
+    return {"ok": True, "user": _user_json(user, request, db), "spell_help": bool(getattr(target, "spell_help", True))}
 
 
 @router.post("/logout")

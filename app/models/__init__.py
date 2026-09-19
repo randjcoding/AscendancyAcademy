@@ -99,6 +99,7 @@ class User(Base):
     list_view_preference: Mapped[str] = mapped_column(String(20), default="cards")
     phone: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     sound_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    spell_help: Mapped[bool] = mapped_column(Boolean, default=True)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
     failed_login_count: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

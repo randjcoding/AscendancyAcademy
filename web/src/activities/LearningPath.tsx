@@ -45,6 +45,7 @@ export function LearningPath({
   csrf,
   activityId,
   soundOn,
+  spellHelp = true,
   path,
   onChange,
 }: {
@@ -52,6 +53,7 @@ export function LearningPath({
   csrf: string
   activityId: string
   soundOn: boolean
+  spellHelp?: boolean
   path: PathState
   onChange: (next: PathState) => void
 }) {
@@ -198,6 +200,7 @@ export function LearningPath({
         activityId={activityId}
         csrf={csrf}
         soundOn={soundOn}
+        spellHelp={spellHelp}
         startRegion={step.region === 'final' ? 'whole' : step.region.id}
         path={step.region === 'final' ? { final: true } : { region: step.region.id }}
         onExit={() => setStep({ kind: 'home' })}

@@ -219,3 +219,50 @@ def test_learning_path_locks_later_regions():
         assert mid["unlocked"] is True
         south = next(row for row in path2["regions"] if row["id"] == "south")
         assert south["unlocked"] is False
+
+
+def test_spell_help_defaults_on_and_parent_can_turn_off():
+    with TestClient(app) as client:
+        greg = _sit_as(client, UserKind.STUDENT)
+        me = client.get("/api/me")
+        assert me.status_code == 200
+        assert me.json()["user"]["spell_help"] is True
+        one = client.get("/api/activities/us-state-capitals")
+        assert one.status_code == 200
+        prefs = one.json()["practice_prefs"]
+        assert prefs["user_id"] == greg["id"]
+        assert prefs["spell_help"] is True
+        saved = client.post(
+            "/api/profile",
+            json={"csrf": greg["csrf"], "spell_help": False},
+        )
+        assert saved.status_code == 200
+        assert saved.json()["user"]["spell_help"] is False
+        joe = _sit_as(client, UserKind.TEACHER)
+        activity = client.get("/api/activities/us-state-capitals")
+        assert activity.json()["practice_prefs"]["spell_help"] is False
+        flipped = client.post(
+            "/api/profile",
+            json={"csrf": joe["csrf"], "spell_help": True, "user_id": greg["id"]},
+        )
+        assert flipped.status_code == 200
+        assert flipped.json()["spell_help"] is True
+        _sit_as(client, UserKind.STUDENT)
+        again = client.get("/api/me")
+        assert again.json()["user"]["spell_help"] is True
+        sneak = client.post(
+            "/api/profile",
+            json={"csrf": again.json()["user"]["csrf"], "spell_help": False, "user_id": joe["id"]},
+        )
+        assert sneak.status_code == 200
+        assert sneak.json()["user"]["spell_help"] is False
+        joe_me = _sit_as(client, UserKind.TEACHER)
+        teacher = client.get("/api/me")
+        assert teacher.json()["user"]["id"] == joe_me["id"]
+        assert teacher.json()["user"]["spell_help"] is True
+        restore = client.post(
+            "/api/profile",
+            json={"csrf": joe_me["csrf"], "spell_help": True, "user_id": greg["id"]},
+        )
+        assert restore.status_code == 200
+        assert restore.json()["spell_help"] is True

@@ -9,6 +9,7 @@ import { PATH_REGION_IDS, PATH_REGIONS, type PathRegionId } from './pathRegions'
 import { playFx } from './sound'
 import { StarBurst } from './StarBurst'
 import { UsaMap } from './UsaMap'
+import { WordBook, spellingMatch } from './WordBook'
 
 export type Place = {
   id: string
@@ -75,21 +76,6 @@ function trapChoices(place: Place, all: Place[]): string[] {
   return shuffle([place.capital, trap, ...others].filter(Boolean)).slice(0, 4)
 }
 
-function norm(value: string): string {
-  return value.toLowerCase().replace(/[^a-z]/g, '')
-}
-
-function typedMatch(typed: string, answer: string): boolean {
-  const a = norm(typed)
-  const b = norm(answer)
-  if (!a || a !== b) {
-    if (b.startsWith('saint') && a === `st${b.slice(5)}`) return true
-    if (b.startsWith('st') && a === `saint${b.slice(2)}`) return true
-    return false
-  }
-  return true
-}
-
 function buildDeck(places: Place[], batch: number, hardIds: string[], hardFirst: boolean): Place[] {
   const n = Math.min(Math.max(1, batch), places.length)
   if (!hardFirst || !hardIds.length) return shuffle(places).slice(0, n)
@@ -102,11 +88,17 @@ export function ActivityRunner({
   activity,
   csrf,
   soundOn,
+  spellHelp = true,
+  onSpellHelp,
+  spellHelpLabel,
   struggle = [],
 }: {
   activity: ActivityPayload
   csrf: string
   soundOn: boolean
+  spellHelp?: boolean
+  onSpellHelp?: (on: boolean) => void
+  spellHelpLabel?: string
   struggle?: StruggleItem[]
 }) {
   const [mode, setMode] = useState<Mode | ''>('')
@@ -219,6 +211,17 @@ export function ActivityRunner({
             Start with the ones that need work ({hardIds.length})
           </label>
         ) : null}
+        {onSpellHelp ? (
+          <label className="check-row">
+            <input type="checkbox" checked={spellHelp} onChange={(e) => onSpellHelp(e.target.checked)} />
+            {spellHelpLabel || 'Help with spelling'}
+          </label>
+        ) : null}
+        <p className="muted">
+          {spellHelp
+            ? 'Type it out uses a word book so a missed letter does not count as a miss. A parent can turn that off.'
+            : 'Spelling help is off. Type it out needs the exact name.'}
+        </p>
       </section>
     )
   }
@@ -236,6 +239,7 @@ export function ActivityRunner({
       activityId={activity.activity_id}
       csrf={csrf}
       soundOn={soundOn}
+      spellHelp={spellHelp}
       startRegion={playRegion}
       onExit={() => setMode('')}
     />
@@ -254,6 +258,7 @@ export function PlayRound({
   activityId,
   csrf,
   soundOn,
+  spellHelp = true,
   startRegion = 'whole',
   path,
   onExit,
@@ -270,6 +275,7 @@ export function PlayRound({
   activityId: string
   csrf: string
   soundOn: boolean
+  spellHelp?: boolean
   startRegion?: string
   path?: PathDetail
   onExit: () => void
@@ -480,7 +486,7 @@ export function PlayRound({
   const submitType = () => {
     if (!current || done) return
     const right = side === 'state' ? current.capital : current.name
-    if (typedMatch(typed, right)) {
+    if (spellingMatch(typed, right, spellHelp)) {
       markRight(current.id)
       window.setTimeout(() => advance(), 350)
     } else {
@@ -690,10 +696,11 @@ export function PlayRound({
         >
           <label className="field">
             <span className="field__label">Type your answer</span>
-            <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus autoComplete="off" />
+            <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus autoComplete="off" spellCheck={spellHelp} />
           </label>
+          {spellHelp ? <WordBook places={places} typed={typed} onPick={setTyped} /> : null}
           <button type="submit" className="btn btn--primary">Check</button>
-          {tries > 0 && !typedMatch(typed, side === 'state' ? current.capital : current.name) ? (
+          {tries > 0 && !spellingMatch(typed, side === 'state' ? current.capital : current.name, spellHelp) ? (
             <p className="muted">
               {tries >= 2 ? `${current.name} — ${current.capital}` : 'Not quite. Try once more.'}
             </p>

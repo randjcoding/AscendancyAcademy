@@ -131,6 +131,13 @@ def ensure_schema() -> None:
             ddl=f"sound_enabled BOOLEAN DEFAULT {bool_true}",
             adds=adds,
         )
+        _add_if_missing(
+            cols=cols,
+            table="users",
+            name="spell_help",
+            ddl=f"spell_help BOOLEAN DEFAULT {bool_true}",
+            adds=adds,
+        )
 
     if "notebooks" in tables:
         cols = {c["name"] for c in insp.get_columns("notebooks")}

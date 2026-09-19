@@ -19,7 +19,14 @@ export type User = {
   list_view: string
   phone?: string
   sound_enabled?: boolean
+  spell_help?: boolean
   csrf: string
+}
+
+export type PracticePrefs = {
+  user_id: number
+  name: string
+  spell_help: boolean
 }
 
 export type ColorOpt = { id?: number; hex: string; name: string }

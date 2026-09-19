@@ -10,7 +10,7 @@ from app.activities.registry import all_activities, get_activity, public_card
 from app.activities.schema import ALL_MODES
 from app.database import get_db
 from app.dependencies import first_student
-from app.models import Student
+from app.models import Student, User
 from app.routers.api import _csrf_bad, _err, _must_user
 from app.services import activities as svc
 
@@ -43,6 +43,22 @@ def _student_id(db, user):
     return None
 
 
+def _practice_prefs(db, student_id: int | None) -> dict | None:
+    if not student_id:
+        return None
+    student = db.get(Student, student_id)
+    if not student:
+        return None
+    owner = db.get(User, student.user_id) if student.user_id else None
+    if not owner:
+        return None
+    return {
+        "user_id": owner.id,
+        "name": owner.display_name,
+        "spell_help": bool(getattr(owner, "spell_help", True)),
+    }
+
+
 @router.get("")
 def list_activities(request: Request, db: Session = Depends(get_db)):
     user = _must_user(request, db)
@@ -54,7 +70,7 @@ def list_activities(request: Request, db: Session = Depends(get_db)):
         prog = svc.progress_row(db, student_id, activity.activity_id) if student_id else None
         cards.append(public_card(activity, prog))
     streak = svc.family_streak(db, student_id) if student_id else 0
-    return {"activities": cards, "streak": streak}
+    return {"activities": cards, "streak": streak, "practice_prefs": _practice_prefs(db, student_id)}
 
 
 @router.get("/results")
@@ -109,6 +125,7 @@ def get_one(activity_id: str, request: Request, db: Session = Depends(get_db)):
         else [],
         "struggle": svc.item_stats(db, student_id, activity_id) if student_id else [],
         "path": svc.path_for(db, student_id, activity_id) if student_id else None,
+        "practice_prefs": _practice_prefs(db, student_id),
     }
 
 

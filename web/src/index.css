@@ -1041,6 +1041,37 @@ body.docs-modal-open { overflow: hidden; }
   border: 1px solid var(--line); display: grid; place-items: center; font-size: 0.75rem;
 }
 .type-it { display: grid; gap: 0.6rem; max-width: 28rem; margin-top: 0.8rem; }
+.word-book { display: grid; gap: 0.4rem; min-width: 0; }
+.word-book__hints { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.word-book__list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+  max-height: 12rem;
+  overflow: auto;
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.word-book__col { min-width: 0; }
+.word-book__word {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  color: var(--ink);
+  font: inherit;
+  padding: 0.28rem 0.15rem;
+  min-height: 2rem;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.word-book__word:hover, .word-book__word:focus-visible {
+  color: var(--brand);
+  outline: none;
+}
 .struggle-list li { display: grid; gap: 0.15rem; }
 .struggle-student { margin-top: 1rem; }
 .batch-pick .field { max-width: 12rem; margin-top: 0.6rem; }
